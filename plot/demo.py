@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
+"""Demo of different plot API styles: procedural test_widget and OO test_plot
+"""
 
 from __future__ import print_function
 

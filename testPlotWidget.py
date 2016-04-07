@@ -52,6 +52,8 @@ else:
     from silx.gui import qt
     from silx.gui.plot import PlotWindow
 
+    logging.getLogger('silx.gui.plot.Plot').setLevel(logging.ERROR)
+
 
 # TestWindow ##################################################################
 
