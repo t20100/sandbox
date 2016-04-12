@@ -35,6 +35,8 @@ Script options:
 
 import logging
 import sys
+import time
+
 import numpy as np
 from uuid import uuid4
 
@@ -973,7 +975,7 @@ TEST_DATA = np.array((
 
 if __name__ == "__main__":
     import sys
-    import time
+    import traceback
 
     if 'gl' in sys.argv or 'opengl' in sys.argv:
         backend = 'opengl'
@@ -985,6 +987,11 @@ if __name__ == "__main__":
 
     app = qt.QApplication([])
 
+    # Exception handler
+    def handler(type_, value, trace):
+        logger.error(
+            "%s %s %s" % (type_, value, ''.join(traceback.format_tb(trace))))
+    sys.excepthook = handler
     window = TestWindow(parent=None, backend=backend)
 
     sys.exit(app.exec_())
