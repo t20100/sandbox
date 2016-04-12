@@ -52,7 +52,7 @@ else:
     from silx.gui import qt
     from silx.gui.plot import PlotWindow
 
-    logging.getLogger('silx.gui.plot.Plot').setLevel(logging.ERROR)
+    # logging.getLogger('silx.gui.plot.Plot').setLevel(logging.ERROR)
 
 
 # TestWindow ##################################################################
@@ -88,7 +88,7 @@ class TestWindow(PlotWindow):
             pass  # print(eventDict)
         if eventDict['event'] == 'curveClicked':
             print('setActiveCurve', eventDict['label'])
-            w.setActiveCurve(eventDict['label'])
+            self.setActiveCurve(eventDict['label'])
         if eventDict['event'] == 'drawingFinished':
             shape = eventDict['type']
             if shape in ['polygon', 'rectangle']:
@@ -180,6 +180,22 @@ class TestWindow(PlotWindow):
                                          (self.isXAxisLogarithmic(),
                                           self.isYAxisLogarithmic()))
         menu.addAction('Toggle Log Y', toggleLogY)
+
+        def toggleLogY():
+            self.setYAxisLogarithmic(not self.isYAxisLogarithmic())
+            self.doReplot()
+            self.statusBar().showMessage('Log Scale X: %s, Y: %s' %
+                                         (self.isXAxisLogarithmic(),
+                                          self.isYAxisLogarithmic()))
+        menu.addAction('Toggle Log Y', toggleLogY)
+
+        def toggleActiveCurve():
+            self.enableActiveCurveHandling(
+                not self.isActiveCurveHandlingEnabled())
+            self.doReplot()
+            self.statusBar().showMessage('Active curve handling: %s' %
+                self.isActiveCurveHandlingEnabled())
+        menu.addAction('Toggle Active Curve Handling', toggleActiveCurve)
 
         def changeBaseVectors():
             baseVectors = self._plot.getBaseVectors()
@@ -594,7 +610,6 @@ def testLog(w):
     #           yaxis="right") #fill=True)
     # w.setActiveCurve("curve right", False)
 
-    print('add curve 2')
     w.addCurve(xData, xData ** 8, legend="curve 2", z=2,
                # color='#0000FF80',
                replace=False, replot=False, linestyle="-", symbol="o",
@@ -602,7 +617,6 @@ def testLog(w):
                # selectable=True,
                yaxis="left")  # fill=True)
 
-    print('add curve minus')
     w.addCurve(xData, (xData - 100.) ** 7, legend="curve minus", z=1,
                # color='#0000FF80',
                replace=False, replot=False, linestyle="-", symbol="o",
@@ -610,6 +624,12 @@ def testLog(w):
                # selectable=True,
                yaxis="left")
 
+    w.addCurve(xData, xData ** 7, legend="curve 1", z=1,
+               # color='#0000FF80',
+               replace=False, replot=False, linestyle="-", symbol="o",
+               xlabel="curve Minus X", ylabel="curve Minus Y",
+               # selectable=True,
+               yaxis="left")
     # markers
     # w.insertXMarker(1000, 'testX', 'markerX', color='pink',
     #                selectable=False, draggable=True)
