@@ -43,6 +43,8 @@ from uuid import uuid4
 logging.basicConfig()
 logger = logging.getLogger()
 
+# import PySide
+
 if 'pymca' in sys.argv:
     BACKEND = 'pymca'
     logger.warning('Using PyMca PlotWindow')
@@ -65,13 +67,16 @@ class TestWindow(PlotWindow):
     def __init__(self, parent, backend):
         self._colorIndex = 0
         self.__grid = 0
-        self._activeCurve = True
+        self.__activeCurve = True
 
         if BACKEND == 'silx':
-            super(TestWindow, self).__init__(parent=parent, backend=backend)
+            super(TestWindow, self).__init__(
+                parent=parent, backend=backend,
+                control=True, position=True)
         else:
             super(TestWindow, self).__init__(
-                parent=parent, backend=backend, aspect=True, colormap=True)
+                parent=parent, backend=backend, aspect=True, colormap=True,
+                control=True, position=True)
 
         self._initMenuBar()
         self.show()
@@ -241,10 +246,10 @@ class TestWindow(PlotWindow):
         menu.addAction('Draw Vert. Line', drawVLine)
 
         def toggleActiveCurve():
-            self._activeCurve = not self._activeCurve
-            self.enableActiveCurveHandling(self._activeCurve)
+            self.__activeCurve = not self.__activeCurve
+            self.enableActiveCurveHandling(self.__activeCurve)
             self.statusBar().showMessage(
-                'Active curve handling: %s' % self._activeCurve)
+                'Active curve handling: %s' % self.__activeCurve)
         menu.addAction('Toggle active curve', toggleActiveCurve)
 
         def panMode():
@@ -616,19 +621,20 @@ def testLog(w):
                # color='#0000FF80',
                replace=False, replot=False, linestyle="-", symbol="o",
                xlabel="curve 2 X", ylabel="curve 2 Y",
+               linewidth=3,
                # selectable=True,
                yaxis="left")  # fill=True)
 
     w.addCurve(xData, (xData - 100.) ** 7, legend="curve minus", z=1,
                # color='#0000FF80',
-               replace=False, replot=False, linestyle="-", symbol="o",
+               replace=False, replot=False, linestyle="--", symbol="o",
                xlabel="curve Minus X", ylabel="curve Minus Y",
                # selectable=True,
                yaxis="left")
 
     w.addCurve(xData, xData ** 7, legend="curve 1", z=1,
                # color='#0000FF80',
-               replace=False, replot=False, linestyle="-", symbol="o",
+               replace=False, replot=False, linestyle=":", symbol="o",
                xlabel="curve Minus X", ylabel="curve Minus Y",
                # selectable=True,
                yaxis="left")
