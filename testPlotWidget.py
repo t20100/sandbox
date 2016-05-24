@@ -72,7 +72,13 @@ class TestWindow(PlotWindow):
         if BACKEND == 'silx':
             super(TestWindow, self).__init__(
                 parent=parent, backend=backend,
-                control=True, position=True)
+                control=True,
+                position=[('X', lambda x, y: x),
+                          ('Y', lambda x, y: y),
+                          ('Value', self._getValue)])
+            from silx.gui.plot import PlotTools
+            self.profileToolBar = PlotTools.ProfileToolBar(self)
+            self.addToolBar(self.profileToolBar)
         else:
             super(TestWindow, self).__init__(
                 parent=parent, backend=backend, aspect=True, colormap=True,
@@ -81,9 +87,24 @@ class TestWindow(PlotWindow):
         self._initMenuBar()
         self.show()
 
-        self.sigPlotSignal.connect(self._plotCallback)
+        # self.sigPlotSignal.connect(self._plotCallback)
         testLog(self)
         self.setPanWithArrowKeys(True)
+
+    def _getValue(self, x, y):
+        image = self.getActiveImage()
+        if image is None:
+            return 'No image'
+        else:
+            data, params = image[0], image[4]
+            row = int((y - params['origin'][1]) / params['scale'][1])
+            col = int((x - params['origin'][0]) / params['scale'][0])
+            try:
+                value = data[row, col]
+            except IndexError:
+                return '-'
+            else:
+                return row, col, data[row, col]
 
     def doReplot(self, *args, **kwargs):
         """Only calls replot when using PyMca, it is useless with silx."""
@@ -92,7 +113,7 @@ class TestWindow(PlotWindow):
 
     def _plotCallback(self, eventDict=None):
         if eventDict['event'] != 'mouseMoved':
-            pass  # print(eventDict)
+            print(eventDict)
         if eventDict['event'] == 'curveClicked':
             print('setActiveCurve', eventDict['label'])
             self.setActiveCurve(eventDict['label'])
@@ -365,7 +386,7 @@ class TestWindow(PlotWindow):
             self.clear()
             self.resetZoom()
             testImage(self)
-            self.menuBar().hide()
+            # self.menuBar().hide()
         menu.addAction('Test Image', testImageAction)
 
         def testStreamingAction():
