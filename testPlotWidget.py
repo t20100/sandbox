@@ -76,13 +76,13 @@ class TestWindow(PlotWindow):
                 position=[('X', lambda x, y: x),
                           ('Y', lambda x, y: y),
                           ('Value', self._getValue)])
-            from silx.gui.plot import PlotTools
-            self.profileToolBar = PlotTools.ProfileToolBar(self)
-            self.addToolBar(self.profileToolBar)
+            # from silx.gui.plot import PlotTools
+            # self.profileToolBar = PlotTools.ProfileToolBar(self)
+            # self.addToolBar(self.profileToolBar)
         else:
             super(TestWindow, self).__init__(
                 parent=parent, backend=backend, aspect=True, colormap=True,
-                control=True, position=True)
+                control=True, position=True, roi=True)
 
         self._initMenuBar()
         self.show()
