@@ -36,7 +36,7 @@ import numpy
 
 from silx.gui import qt
 from silx.gui.plot import PlotWindow
-from silx.image.polygon import polygon_fill
+from silx.image.shapes import polygon_fill
 
 
 logging.basicConfig()

@@ -51,7 +51,7 @@ FILL_FUNCTIONS = {}
 
 # silx
 try:
-    from silx.image.polygon import polygon_fill as silx_polygon_fill
+    from silx.image.shapes import polygon_fill as silx_polygon_fill
 except ImportError:
     _logger.warning(
         'silx polygon fill not found, not included in benchmark')
@@ -142,6 +142,13 @@ def main(argv=None):
         _logger.info(
             'nbvert:%d size:%d: ' % (len(tests[index][0]), tests[index][1]) +
             ', '.join('%.3fs' % times[index] for times in timings.values()))
+    _logger.info('Overall: Min, Mean, Median, Max')
+    for name, times in timings.items():
+        _logger.info('%s: %f, %f, %f, %f', name,
+                     min(times),
+                     numpy.mean(times),
+                     numpy.median(times),
+                     max(times))
 
     for name, times in timings.items():
         plt.plot(times, label=name)
@@ -153,6 +160,7 @@ def main(argv=None):
         - nb vertices (slowest variation): (10, 50, 100)""")
     plt.xlabel('test cases: mask size x polygon ratio x nb vertices')
     plt.ylabel('time (seconds)')
+    plt.yscale('log')
     plt.show()
 
 
