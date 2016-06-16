@@ -36,7 +36,7 @@ import numpy
 
 from silx.gui import qt
 from silx.gui.plot import PlotWindow
-from silx.image.shapes import polygon_fill
+from silx.image.shapes import polygon_fill_mask
 
 
 logging.basicConfig()
@@ -44,13 +44,27 @@ _logger = logging.getLogger(__name__)
 
 
 class TestPolygon(PlotWindow):
-    SIZE = 1024
+    SIZE = 4096 #1024
 
     def __init__(self, *args, **kwargs):
         super(TestPolygon, self).__init__(*args, **kwargs)
-        self.mask = numpy.zeros((self.SIZE, self.SIZE), dtype=numpy.uint8)
+        self.image = numpy.arange(
+            self.SIZE ** 2, dtype=numpy.float32).reshape(self.SIZE, self.SIZE)
+        colormap = {
+            'name': 'temperature',
+            'normalization': 'linear',
+            'autoscale': True,
+            'vmin': 0., 'vmax': 1.}
+        self.addImage(self.image, legend='image', colormap=colormap)
 
-        self.addImage(self.mask)
+        self._mask_colormap = {
+            'name': None,
+            'normalization': 'linear',
+            'autoscale': False,
+            'vmin': 0., 'vmax': 1.,
+            'colors': numpy.array(((0., 0., 0., 0.), (0.5, 0.5, 0.5, 0.5)),
+                                  dtype=numpy.float32)}
+
         self.sigPlotSignal.connect(self._handleDraw)
         self.setInteractiveMode('draw', shape='polygon', color='pink')
 
@@ -60,8 +74,9 @@ class TestPolygon(PlotWindow):
 
         points = numpy.array((event['ydata'], event['xdata'])).T
 
-        self.mask = polygon_fill(points, (self.SIZE, self.SIZE))
-        self.addImage(self.mask, resetzoom=False)
+        mask = polygon_fill_mask(points, (self.SIZE, self.SIZE))
+        self.addImage(mask, legend='mask', colormap=self._mask_colormap,
+                      replace=False, resetzoom=False)
 
 
 def main(argv=None):

@@ -51,7 +51,7 @@ FILL_FUNCTIONS = {}
 
 # silx
 try:
-    from silx.image.shapes import polygon_fill as silx_polygon_fill
+    from silx.image.shapes import polygon_fill_mask as silx_polygon_fill
 except ImportError:
     _logger.warning(
         'silx polygon fill not found, not included in benchmark')
