@@ -88,7 +88,7 @@ class TestWindow(PlotWindow):
         self.show()
 
         # self.sigPlotSignal.connect(self._plotCallback)
-        testLog(self)
+        testImage(self) #testLog(self)
         self.setPanWithArrowKeys(True)
 
     def _getValue(self, x, y):
@@ -322,7 +322,7 @@ class TestWindow(PlotWindow):
             self.addImage(dataUInt16, legend="image 2",
                           xScale=(0, 1.0), yScale=(100., 1.0),
                           replace=False, replot=True,
-                          colormap=colormap2)
+                          colormap=colormap2, alpha=0.5)
         menu.addAction('DataSet uint16 1', setUInt16Data)
 
         def setUInt16Data2():
@@ -767,7 +767,10 @@ def testImage(w):
 
     w.enableActiveCurveHandling(False)
 
-    w.addImage(TEST_DATA)
+    w.addImage(TEST_DATA, colormap={
+        'name': 'temperature',
+        'normalization': 'linear',
+        'autoscale': True, 'vmin': 0., 'vmax': 1.})
 
     w.resetZoom()
 
