@@ -9,7 +9,8 @@ import numpy as np
 from libc.math cimport ceil
 
 
-def polygon_mask(y, x, shape):  # TODO shape=None
+def polygon_mask(y, x, shape, asmask=False):  # TODO shape=None
+    """Returns the mask or included points depending on asmask"""
     cdef float[:] c_x = np.ascontiguousarray(x)
     cdef float[:] c_y = np.ascontiguousarray(y)
     cdef Py_ssize_t nr_verts = c_x.shape[0]
@@ -79,83 +80,14 @@ def polygon_mask(y, x, shape):  # TODO shape=None
                     mask[row, col] = is_inside
                     is_inside = current ^ is_inside
 
-    return mask
+    if asmask:
+        return np.asarray(mask)
+    else:
+        return np.asarray(mask).nonzero()
 
 
-def polygon(y, x, shape):  # TODO shape=None
-    cdef float[:] c_x = np.ascontiguousarray(x)
-    cdef float[:] c_y = np.ascontiguousarray(y)
-    cdef Py_ssize_t nr_verts = c_x.shape[0]
-
-    cdef int height, width
-
-    height, width = shape
-
-    cdef unsigned char[:, :] mask = np.zeros((height, width),
-                                             dtype=np.uint8)
-    cdef int row_min, row_max, col_min, col_max  # mask subpart to update
-    cdef int row, col, index  # Loop indixes
-    cdef float pt1x, pt1y, pt2x, pt2y  # segment end points
-    cdef int xinters, is_inside, current
-
-    row_min = max(int(min(c_y)), 0)
-    row_max = min(int(max(c_y)) + 1, height)
-
-    # Can be replaced by prange(row_min, row_max, nogil=True)
-    with nogil:
-        for row in range(row_min, row_max):
-            # For each line of the image, mark intersection of all segments
-            # in the line and then run a xor scan to fill inner parts
-            # Adapted from http://alienryderflex.com/polygon_fill/
-            pt1x = c_x[nr_verts-1]
-            pt1y = c_y[nr_verts-1]
-            col_min = width - 1
-            col_max = 0
-            is_inside = 0  # Init with whether first col is inside or not
-
-            for index in range(nr_verts):
-                pt2x = c_x[index]
-                pt2y = c_y[index]
-
-                if ((pt1y <= row and row < pt2y) or
-                        (pt2y <= row and row < pt1y)):
-                    # Intersection casted to int so that ]x, x+1] => x
-                    xinters = (<int>ceil(pt1x + (row - pt1y) *
-                               (pt2x - pt1x) / (pt2y - pt1y))) - 1
-
-                    # Update column range to patch
-                    if xinters < col_min:
-                        col_min = xinters
-                    if xinters > col_max:
-                        col_max = xinters
-
-                    if xinters < 0:
-                        # Add an intersection to init value of xor scan
-                        is_inside ^= 1
-                    elif xinters < width:
-                        # Mark intersection in mask
-                        mask[row, xinters] ^= 1
-                    # else: do not consider intersection on the right
-
-                pt1x, pt1y = pt2x, pt2y
-
-            if col_min < col_max:
-                # Clip column range to mask
-                if col_min < 0:
-                    col_min = 0
-                if col_max > width - 1:
-                    col_max = width - 1
-
-                # xor exclusive scan
-                for col in range(col_min, col_max + 1):
-                    current = mask[row, col]
-                    mask[row, col] = is_inside
-                    is_inside = current ^ is_inside
-
-    return np.asarray(mask).nonzero()
-
-
-def polygon2(y, x, shape):
+def polygon(y, x, shape):
+    """Returns included points, using a buffer the size of a line"""
     x = np.asanyarray(x)
     y = np.asanyarray(y)
 
