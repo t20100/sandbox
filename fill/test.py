@@ -10,44 +10,50 @@ from shapes import polygon, polygon2
 
 # Test data
 
-nb_vertices = 10
-shape = 1024, 2048
+#nb_vertices = 10
+#shape = 1024, 2048
+nb_vertices = 100
+shape = 4000, 4000
 
-#y = np.random.randint(0, shape[0], nb_vertices).astype(np.float32)
-#x = np.random.randint(0, shape[1], nb_vertices).astype(np.float32)
+row = np.random.randint(0, shape[0], nb_vertices).astype(np.float32)
+col = np.random.randint(0, shape[1], nb_vertices).astype(np.float32)
 
-y = np.array([ 199.,  192.,  130.,  518.,  566.,  169.,  335.,   75.,  310.,  573., 0., 1024., 0., 1024.], dtype=np.float32)
-x = np.array([ 1686.,  1685.,  1071.,  1208.,  1558.,   734.,  1922.,   977., 1890.,  1003., 0., 2048., 2048., 0.], dtype=np.float32)
+#row = np.array([ 199.,  192.,  130.,  518.,  566.,  169.,  335.,   75.,  310.,  573., 0., 1024., 0., 1024.], dtype=np.float32)
+#col = np.array([ 1686.,  1685.,  1071.,  1208.,  1558.,   734.,  1922.,   977., 1890.,  1003., 0., 2048., 2048., 0.], dtype=np.float32)
 
 # Polygon fill
 
 st = time.time()
-new_y, new_x = polygon(y, x, shape)  # New with full mask
-new_dt = time.time() - st
+buffer_row, buffer_col = polygon(row, col, shape)  # New with full mask
+buffer_dt = time.time() - st
 
 st = time.time()
-alt_y, alt_x = polygon2(y, x, shape)  # Alternative
-alt_dt = time.time() - st
+line_row, line_col = polygon2(row, col, shape)  # Alternative
+line_dt = time.time() - st
 
 st = time.time()
-sk_y, sk_x = sk_polygon(y, x, shape)  # skimage
+sk_row, sk_col = sk_polygon(row, col, shape)  # skimage
 sk_dt = time.time() - st
 
 # Check
 
-if (len(sk_x) == len(new_x) and len(sk_x) == len(alt_x) and
-        np.all(np.equal(sk_x, new_x)) and np.all(np.equal(sk_y, new_y)) and
-        np.all(np.equal(sk_x, alt_x)) and np.all(np.equal(sk_y, alt_y))):
+if (len(sk_col) == len(buffer_col) and
+        np.all(np.equal(sk_row, buffer_row)) and
+        np.all(np.equal(sk_col, buffer_col)) and
+        len(sk_col) == len(line_col) and
+        np.all(np.equal(sk_row, line_row)) and
+        np.all(np.equal(sk_col, line_col))):
     print('Same')
 else:
     print('Error')
-print('Time (s): new: %f; alt: %f; skimage: %f' % (new_dt, alt_dt, sk_dt))
+print('Time (s): buffer: %f; line: %f; skimage: %f' %
+      (buffer_dt, line_dt, sk_dt))
 
 # Plot mask
 
 mask = np.zeros(shape, dtype=np.bool_)
-if len(new_y):
-    mask[new_y, new_x] = True
+if len(buffer_row):
+    mask[buffer_row, buffer_col] = True
 
 plt.imshow(mask)
 plt.show()

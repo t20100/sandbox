@@ -4,7 +4,6 @@
 #cython: nonecheck=False
 #cython: wraparound=False
 
-from libcpp.vector cimport vector
 cimport numpy as cnp
 import numpy as np
 from libc.math cimport ceil
@@ -20,7 +19,7 @@ def polygon(y, x, shape):  # TODO shape=None
     height, width = shape
 
     cdef unsigned char[:, :] mask = np.zeros((height, width),
-                                                dtype=np.uint8)
+                                             dtype=np.uint8)
     cdef int row_min, row_max, col_min, col_max  # mask subpart to update
     cdef int row, col, index  # Loop indixes
     cdef float pt1x, pt1y, pt2x, pt2y  # segment end points
@@ -83,41 +82,6 @@ def polygon(y, x, shape):  # TODO shape=None
     return np.asarray(mask).nonzero()
 
 
-cdef class VectorInt:
-    cdef:
-        cnp.intp_t[:] data
-        cnp.intp_t size, allocated
-    
-    def __cinit__(self, data=None, int min_size=10):
-
-        if data:
-            self.data = np.ascontiguousarray(data)
-            self.allocated = self.size = self.data.size
-        else:
-            self.allocated = min_size
-            self.data = np.empty(self.allocated, dtype=np.intp)
-            self.size = 0
-    
-    def __dealloc__(self):
-        self.data = None
-    
-    def __len__(self):
-        return self.size
-        
-    def get_data(self):
-        return np.asarray(self.data[:self.size])
-    
-    def append(self, cnp.intp_t value):
-        if self.size >= self.allocated - 1:
-            new_allocated = self.allocated * 2
-            newdata = np.empty(new_allocated, dtype=np.intp)
-            newdata[:self.size] = self.data[:self.size]
-            self.data = newdata
-            self.allocated = new_allocated
-        self.data[self.size] = value
-        self.size += 1
-
-
 def polygon2(y, x, shape):
     x = np.asanyarray(x)
     y = np.asanyarray(y)
@@ -154,10 +118,6 @@ def polygon2(y, x, shape):
     # output coordinate arrays
     cdef list rr = list()
     cdef list cc = list()
-    #cdef VectorInt rr = VectorInt()
-    #cdef VectorInt cc = VectorInt()
-    #cdef vector[cnp.intp_t] rr
-    #cdef vector[cnp.intp_t] cc
 
     for row in range(minr, maxr+1):
         # For each line of the image, mark intersection of all segments
@@ -213,11 +173,7 @@ def polygon2(y, x, shape):
                 if is_inside:
                     rr.append(row)
                     cc.append(col)
-                    #rr.push_back(row)
-                    #cc.push_back(col)
 
                 is_inside = current ^ is_inside
 
     return rr, cc
-    #return np.array(rr, dtype=np.intp), np.array(cc, dtype=np.intp)
-    #return rr.get_data(), cc.get_data()

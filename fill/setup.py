@@ -5,7 +5,7 @@ from distutils.extension import Extension
 
 cy_mod = Extension("shapes",
     sources=["shapes.pyx"],
-    language="c++",
+#    language="c++",
 #    extra_compile_args=['-fopenmp'],
 #    extra_link_args=['-fopenmp']
     )
