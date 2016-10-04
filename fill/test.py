@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 from skimage.draw import polygon as sk_polygon
 
-from shapes import polygon, polygon2
+from polygon import polygon_mask, polygon, polygon2
 
 # Test data
 
@@ -24,7 +24,7 @@ col = np.random.randint(0, shape[1], nb_vertices).astype(np.float32)
 # Polygon fill
 
 st = time.time()
-buffer_row, buffer_col = polygon(row, col, shape)  # New with full mask
+buffer_row, buffer_col = polygon(row, col, shape)  # With full mask
 buffer_dt = time.time() - st
 
 st = time.time()
