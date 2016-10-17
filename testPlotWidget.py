@@ -45,7 +45,7 @@ logger = logging.getLogger()
 
 # import PySide
 
-if 'pymca' in sys.argv:
+if hasattr(sys, 'argv') and 'pymca' in sys.argv:
     BACKEND = 'pymca'
     logger.warning('Using PyMca PlotWindow')
     from PyMca5.PyMcaGui import PyMcaQt as qt
@@ -97,8 +97,11 @@ class TestWindow(PlotWindow):
             return 'No image'
         else:
             data, params = image[0], image[4]
-            row = int((y - params['origin'][1]) / params['scale'][1])
-            col = int((x - params['origin'][0]) / params['scale'][0])
+            try:
+                row = int((y - params['origin'][1]) / params['scale'][1])
+                col = int((x - params['origin'][0]) / params['scale'][0])
+            except ValueError:
+                return '-'
             try:
                 value = data[row, col]
             except IndexError:
