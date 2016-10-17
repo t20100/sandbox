@@ -77,7 +77,7 @@ class TestWindow(PlotWindow):
                           ('Y', lambda x, y: y),
                           ('Value', self._getValue)])
             from silx.gui.plot import PlotTools
-            self.profileToolBar = PlotTools.ProfileToolBar(self)
+            self.profileToolBar = PlotTools.ProfileToolBar(plot=self)
             self.addToolBar(self.profileToolBar)
         else:
             super(TestWindow, self).__init__(
