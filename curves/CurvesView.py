@@ -86,7 +86,7 @@ class CurvesView(qt.QWidget):
         self._sum = None
         self._count = None
 
-        self._plot = Plot1D(backend='gl')
+        self._plot = Plot1D() #backend='gl')
         self._plot.setActiveCurveHandling(False)
 
         layout = qt.QGridLayout(self)
