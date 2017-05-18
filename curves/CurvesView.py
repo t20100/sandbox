@@ -86,7 +86,7 @@ class CurvesView(qt.QWidget):
         self._sum = None
         self._count = None
 
-        self._plot = Plot1D() #backend='gl')
+        self._plot = Plot1D(backend='gl')
         self._plot.setActiveCurveHandling(False)
 
         layout = qt.QGridLayout(self)
@@ -393,7 +393,6 @@ if __name__ == '__main__':
             self._init = False
 
         def push_event(self, event):
-            print('got something', event)
             if event.attr_value is not None:
                 if event.attr_value.name.endswith("jobSuccess"):
                     print('jobSuccess')
@@ -408,8 +407,7 @@ if __name__ == '__main__':
                         self._init = True
                     if xsd.dataI is not None:
                         i = xsDataToArray(xsd.dataI)
-                        i[i <= 1] = 1
-                        print('i', i)
+                        i[i <= 1] = 1  # Hack
                         w.appendCurves(i)
 
                     # err = xsDataToArray(xsd.dataStdErr)
