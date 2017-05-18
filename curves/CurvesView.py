@@ -360,9 +360,8 @@ def xsDataToArray(_xsdata):
 
 if __name__ == '__main__':
     import glob
-    import PyTango
 
-    live = False
+    live = True #False
 
     if not live:
         npz = numpy.load('curves.npz')
@@ -394,8 +393,9 @@ if __name__ == '__main__':
             self._init = False
 
         def push_event(self, event):
+            print('got something', event)
             if event.attr_value is not None:
-                if event.attr_value.name == "jobSuccess":
+                if event.attr_value.name.endswith("jobSuccess"):
                     print('jobSuccess')
                     # Get curve
                     jobid = event.attr_value.value  # from event
@@ -441,11 +441,12 @@ if __name__ == '__main__':
 
     if live:
         thread = False
-        device = PyTango.DeviceProxy("dau/edna/3")
+        device = PyTango.DeviceProxy("DAU/edna/3")
         cb = CB(device, w)
         device.subscribe_event("jobSuccess", PyTango.EventType.CHANGE_EVENT, cb, [], True)
         # device.subscribe_event("jobFailure", PyTango.EventType.CHANGE_EVENT, cb, [], True)
         # device.subscribe_event("statisticsCollected", PyTango.EventType.CHANGE_EVENT, cb, [], True)
+        print('init done')
 
     if not live:
         import threading
