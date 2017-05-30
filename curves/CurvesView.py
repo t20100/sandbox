@@ -30,7 +30,7 @@ from __future__ import division
 
 __authors__ = ["T. VINCENT"]
 __license__ = "MIT"
-__date__ = "15/05/2017"
+__date__ = "30/05/2017"
 
 
 import logging
@@ -40,7 +40,9 @@ import numpy
 from silx.gui import qt
 from silx.gui.plot import Plot1D
 
+
 _logger = logging.getLogger(__name__)
+
 
 if hasattr(numpy, 'nanmean'):
     nanmean = numpy.nanmean
@@ -55,6 +57,7 @@ else:  # Debian 7 support
         return numpy.nansum(data, axis) / numpy.sum(notNaNMask, axis, dtype='int')
 
 
+# TODO make the min/max background work for negative values...
 # TODO split control widgets from curves plot
 # TODO make curves handling not being a widget and make it interact with a plot
 # TODO optimisation of min/mean/max computation
@@ -73,6 +76,9 @@ class CurvesView(qt.QWidget):
     :param f:
     """
 
+    _sigAppendCurves = qt.Signal(object)
+    _sigSetXData = qt.Signal(object)
+
     def __init__(self, parent=None, f=qt.Qt.WindowFlags()):
         super(CurvesView, self).__init__(parent, f)
 
@@ -86,7 +92,7 @@ class CurvesView(qt.QWidget):
         self._sum = None
         self._count = None
 
-        self._plot = Plot1D(backend='gl')
+        self._plot = Plot1D() #backend='matplotlib')
         self._plot.setActiveCurveHandling(False)
 
         layout = qt.QGridLayout(self)
@@ -104,6 +110,9 @@ class CurvesView(qt.QWidget):
 
         self._updateControlWidgets()
 
+        self._sigAppendCurves.connect(self._appendCurves)
+        self._sigSetXData.connect(self._setXData)
+
     def getPlot(self):
         """Returns the used :class:`PlotWidget` plot."""
         return self._plot
@@ -111,10 +120,17 @@ class CurvesView(qt.QWidget):
     def setXData(self, x):
         """Set the X coordinates of the curves.
 
+        This method can be called from any thread.
+
         :param numpy.ndarray x: The X coordinates of the curves.
         """
         x = numpy.array(x, copy=True)
         assert x.ndim == 1
+
+        self._sigSetXData.emit(x)
+
+    def _setXData(self, x):
+        """Implements :meth:`setXData` in the main thread."""
         if self._data is not None:
             assert len(x) == self._data.shape[-1]
 
@@ -257,13 +273,20 @@ class CurvesView(qt.QWidget):
 
         The data is always copied.
 
+        This method can be called from any thread.
+
         :param numpy.ndarray data:
             If 1D, it is a curve to append to the plot.
             If 2D, it is a set of curves to append.
         """
-        plot = self.getPlot()
-        data = numpy.atleast_2d(numpy.array(data, copy=False))
+        data = numpy.atleast_2d(numpy.array(data, copy=True))
         assert data.ndim == 2
+
+        self._sigAppendCurves.emit(data)
+
+    def _appendCurves(self, data):
+        """Implements :meth:`appendCurves` in the main thread."""
+        plot = self.getPlot()
 
         wasData = self._data is not None
 
@@ -271,7 +294,7 @@ class CurvesView(qt.QWidget):
             if self._x is None:
                 self._x = numpy.arange(data.shape[-1])
             assert len(self._x) == data.shape[-1]
-            self._data = numpy.array(data, copy=True)
+            self._data = data
 
         else:
             assert self._data.shape[-1] == data.shape[-1]
@@ -302,12 +325,11 @@ class CurvesView(qt.QWidget):
             self.getXData(), means, legend='mean',
             color='#FFFFFF',
             linewidth=2, linestyle='-',
-            z=z,
+            z=1000,
             resetzoom=False)
 
         # Draw current curve
         self._updateCurrentCurve()
-
 
         if not wasData:
             self.resetZoom()
@@ -317,154 +339,37 @@ class CurvesView(qt.QWidget):
         self.getPlot().resetZoom()
 
 
-import base64, sys
-
-def xsDataToArray(_xsdata):
-    """
-    Lightweight, EDNA-Free implementation of the same function.
-    Needed library: Numpy, base64 and sys
-    Convert a XSDataArray into either a numpy array or a list of list
-
-    @param _xsdata: XSDataArray instance
-    @return: numpy array
-    """
-    shape = tuple(_xsdata.getShape())
-    encData = _xsdata.getData()
-
-    if _xsdata.getCoding() is not None:
-        strCoding = _xsdata.getCoding().getValue()
-        if strCoding == "base64":
-            decData = base64.b64decode(encData)
-        elif strCoding == "base32":
-            decData = base64.b32decode(encData)
-        elif strCoding == "base16":
-            decData = base64.b16decode(encData)
-        else:
-            print(
-                "Unable to recognize the encoding of the data !!! got %s, expected base64, base32 or base16, I assume it is base64 " % strCoding)
-            decData = base64.b64decode(encData)
-    else:
-        print("No coding provided, I assume it is base64 ")
-        strCoding = "base64"
-        decData = base64.b64decode(encData)
-    try:
-        matIn = numpy.fromstring(decData, dtype=_xsdata.getDtype())
-    except Exception:
-        matIn = numpy.fromstring(decData, dtype=numpy.dtype(str(_xsdata.getDtype())))
-    arrayOut = matIn.reshape(shape)
-    # Enforce little Endianness
-    if sys.byteorder == "big":
-        arrayOut.byteswap(True)
-    return arrayOut
-
-
 if __name__ == '__main__':
     import glob
+    import threading
+    import time
 
-    live = True #False
-
-    if not live:
-        npz = numpy.load('curves.npz')
-        q = npz['q']
-        data = npz['intensities']
-        npz.close()
-        data[data <= 1] = 1  # HACK
-
-    if 0:
-        data, q = [], None
-        for f in glob.glob('*.dat'):
-            if q is None:
-                q = numpy.loadtxt(f).T[0]  # Get Q
-            data.append(numpy.loadtxt(f).T[1])  # Get I
-        data = numpy.array(data)
-        numpy.savez('curves.npz', q=q, intensities=data)
-        data[data <= 1] = 1  # HACK
-
-    import os
-    os.environ['TANGO_HOST'] = 'nela:20000'
-
-    import PyTango
-    from XSDataBioSaxsv1_0 import XSDataResultBioSaxsHPLCv1_0
-
-    class CB(object):
-        def __init__(self, device, w):
-            self._device = device
-            self._w = w
-            self._init = False
-
-        def push_event(self, event):
-            if event.attr_value is not None:
-                if event.attr_value.name.endswith("jobSuccess"):
-                    print('jobSuccess')
-                    # Get curve
-                    jobid = event.attr_value.value  # from event
-                    print('jobid', jobid)
-                    x = self._device.getJobOutput(jobid)
-                    xsd = XSDataResultBioSaxsHPLCv1_0.parseString(x)
-                    if not self._init and xsd.dataQ is not None:
-                        q = xsDataToArray(xsd.dataQ)
-                        w.setXData(q)
-                        self._init = True
-                    if xsd.dataI is not None:
-                        i = xsDataToArray(xsd.dataI)
-                        i[i <= 1] = 1  # Hack
-                        w.appendCurves(i)
-
-                    # err = xsDataToArray(xsd.dataStdErr)
+    # dummy data
+    x = numpy.linspace(0., 10., 1024)
+    y = numpy.sin(x) + 2
+    data = y[numpy.newaxis, :] + numpy.random.normal(0, 0.1, (1024, len(y)))
 
     app = qt.QApplication([])
 
-    class MyCurvesView(CurvesView):
-        """Makes appendCurves callable from threads"""
-
-        sigAppendCurves = qt.Signal(object)
-        sigSetXData = qt.Signal(object)
-
-        def __init__(self, parent=None):
-            super(MyCurvesView, self).__init__(parent)
-            self.sigAppendCurves.connect(
-                super(MyCurvesView, self).appendCurves)
-
-        def appendCurves(self, curves):
-            self.sigAppendCurves.emit(curves)
-
-        def setXData(self, x):
-            self.sigSetXData.emit(x)
-
-
-    w = MyCurvesView()
+    w = CurvesView()
     # w.setAttribute(qt.Qt.WA_DeleteOnClose)
-    w.getPlot().setYAxisLogarithmic(True)
     w.show()
 
-    if live:
-        thread = False
-        device = PyTango.DeviceProxy("DAU/edna/3")
-        cb = CB(device, w)
-        device.subscribe_event("jobSuccess", PyTango.EventType.CHANGE_EVENT, cb, [], True)
-        # device.subscribe_event("jobFailure", PyTango.EventType.CHANGE_EVENT, cb, [], True)
-        # device.subscribe_event("statisticsCollected", PyTango.EventType.CHANGE_EVENT, cb, [], True)
-        print('init done')
+    w.setXData(x)
+    w.appendCurves(data)
+    w.resetZoom()
 
-    if not live:
-        import threading
-        import time
+    running = True
 
-        w.appendCurves(data)
-        w.setXData(q)
+    def addCurves():
+        index = 0
+        while running:
+            time.sleep(1)
+            w.appendCurves(data[index % len(data)])
+            index += 1
 
-        running = True
-
-        def addCurves():
-            index = 0
-            while running:
-                time.sleep(1)
-                w.appendCurves(data[index % len(data)])
-                index += 1
-
-        thread = threading.Thread(target=addCurves)
-        thread.start()
-
+    thread = threading.Thread(target=addCurves)
+    thread.start()
 
     app.exec_()
     print('closing...')
