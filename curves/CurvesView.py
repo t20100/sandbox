@@ -82,7 +82,7 @@ class CurvesView(qt.QWidget):
     def __init__(self, parent=None, f=qt.Qt.WindowFlags()):
         super(CurvesView, self).__init__(parent, f)
 
-        self._nbExtraCurves = 5
+        self._nbExtraCurves = 1
         self._currentCurveColor = 0., 0.8, 0., 1.
         self._index = -1
         self._x = None
@@ -157,7 +157,7 @@ class CurvesView(qt.QWidget):
         data = self.getData(copy=False)
         currentIndex = self.getCurrentCurveIndex(absolute=True)
 
-        for offset in range(- self._nbExtraCurves - 1,
+        for offset in range(- self._nbExtraCurves,
                             self._nbExtraCurves + 1):
             index = currentIndex + offset
             if offset == 0:
@@ -323,7 +323,7 @@ class CurvesView(qt.QWidget):
         means = nanmean(self._data, axis=0)
         plot.addCurve(
             self.getXData(), means, legend='mean',
-            color='#FFFFFF',
+            color='#FFFFFF80',
             linewidth=2, linestyle='-',
             z=1000,
             resetzoom=False)
@@ -356,7 +356,7 @@ if __name__ == '__main__':
     w.show()
 
     w.setXData(x)
-    w.appendCurves(data)
+    #w.appendCurves(data)
     w.resetZoom()
 
     running = True
@@ -364,7 +364,7 @@ if __name__ == '__main__':
     def addCurves():
         index = 0
         while running:
-            time.sleep(1)
+            time.sleep(0.1)
             w.appendCurves(data[index % len(data)])
             index += 1
 
