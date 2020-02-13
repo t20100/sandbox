@@ -157,13 +157,13 @@ class DraggableRectangle(qt.QObject):
         self._size = numpy.array((0, 0), dtype=numpy.float)  # (width, height)
 
         self._rectangle = items.Shape('polygon')
-        self._rectangle._setLegend(self._legend('rectangle'))
+        self._rectangle.setName(self._legend('rectangle'))
         self._rectangle.setOverlay(True)
         self._rectangle.setLineWidth(2)
 
         self._center_marker = items.Marker()
         self._center_marker.setPosition(0, 0)
-        self._center_marker._setLegend(self._legend('center_marker'))
+        self._center_marker.setName(self._legend('center_marker'))
         self._center_marker._setDraggable(True)
         self._center_marker.setSymbol('o')
         self._center_marker.sigItemChanged.connect(self.__marker_changed)
@@ -176,7 +176,7 @@ class DraggableRectangle(qt.QObject):
         for item in self._plot_items:
             plot = item.getPlot()
             if plot is not None:
-                plot._remove(item)
+                plot.removeItem(item)
 
     def _setVisible(self, visible):
         for item in self._plot_items:
@@ -189,7 +189,7 @@ class DraggableRectangle(qt.QObject):
         for item in self._plot_items:
             assert item.getPlot() is None
         for item in self._plot_items:
-            plot._add(item)
+            plot.addItem(item)
 
     def setLineWidth(self, width):
         for item in self._plot_items:
@@ -238,7 +238,7 @@ class ExtendableRectangle(DraggableRectangle):
 
         self._bottom_marker = items.Marker()
         self._bottom_marker.setPosition(0, 0)
-        self._bottom_marker._setLegend(self._legend('bottom_marker'))
+        self._bottom_marker.setName(self._legend('bottom_marker'))
         self._bottom_marker._setDraggable(True)
         self._bottom_marker.setSymbol('s')
         self._bottom_marker._setConstraint(
@@ -248,7 +248,7 @@ class ExtendableRectangle(DraggableRectangle):
 
         self._top_marker = items.Marker()
         self._top_marker.setPosition(0, 0)
-        self._top_marker._setLegend(self._legend('top_marker'))
+        self._top_marker.setName(self._legend('top_marker'))
         self._top_marker._setDraggable(True)
         self._top_marker.setSymbol('s')
         self._top_marker._setConstraint(
@@ -1271,8 +1271,8 @@ if __name__ == "__main__":
     print('Loaded', data_view.shape)
 
     window.setOrigin(1, 2, 3)
-    #window.setResolution(50*10e-5, 50*10e-5, 50*10e-5)
-    window.setResolution(50*10e-6, 50*10e-6, 50*10e-6)
+    window.setResolution(50*10e-5, 50*10e-5, 50*10e-5)
+    #window.setResolution(50*10e-6, 50*10e-6, 50*10e-6)
     window.setData(data_view)
 
     sys.exit(app.exec_())
