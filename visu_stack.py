@@ -25,16 +25,31 @@
 
 # TODOs
 # - Add some constraint on the 3D ROI to represent the limit of the sample stage displacement
-# - Benchmark access 3 slices in 2k**3 dataset: hdf5, zarr, caterva... disk, ssd, ram
+# - Benchmark access 3 slices in 2k**3 dataset: hdf5, zarr, caterva... disk, ssd, ram, memcached
 # - Support live update of the 3D stack
 # - When dragging line markers, they are not exactly synchronized
 # - Issue of zoom level upon resize, it seems to need an extra sync
 # - Handle the colormap correctly with the min/max of the stack, not of the image
 # - Add a tool to set the colormap from a ROI (should go into silx)
-# - Change pan with key to a 3D panning of the slices with arrow keys + page up/down)
 # - When volume is loading, add a mode  showing the latest slice in the top view
 
 # - 2nd widget for huge 2D data images + photo layer
+
+# From feedbacks
+# - Add ROI by drawning and selecting the right detector
+# - Horizontal ROI should be circular
+# - Check usage of float16
+# - Change up/down of the volume (??)
+# - When changing the height of the ROI, move the horizontal slice at the same time
+# - Add some constraints horizontal/vertical on panning (with modifier keys)
+# - Modifier key to change diameter of circle remaining centered
+# - colormap: add per-slice autoscale
+# - Option to have one slice as full screen
+
+# From feedbacks, optional
+# - 3D view with isosurface
+# - Reload at full resolution (or make an extra view with it)
+
 
 # Ideas/Question
 # - Idea: Mode to draw a rectangle on a slide to select the right scan and create the proper ROI
@@ -43,6 +58,7 @@
 # - Update silx ROIs and use it (that would bring the display of the name along with the ROI)
 # - Fix silx issue with axes sync
 # - Make silx plot action work for multiple plots at once
+# - colormap: sqrt and gamma
 
 import functools
 import logging
@@ -703,9 +719,18 @@ class ROI3DTableWidget(qt.QTableWidget):
 class Plot(plot.PlotWidget):
     """Plot widget with focus feedback"""
 
+    sigSliceChanged = qt.Signal(int)
+    """Signal emitted when arrow keys are pressed.
+
+    It provides a direction information: 1 or -1.
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setDataBackgroundColor('white')
+        self.setPanWithArrowKeys(False)
+        self.setFocusPolicy(qt.Qt.StrongFocus)
+        self.setFocus(qt.Qt.OtherFocusReason)
 
     def focusInEvent(self, event):
         self.setBackgroundColor((237, 251, 255, 255))
@@ -715,6 +740,24 @@ class Plot(plot.PlotWidget):
         super().focusOutEvent(event)
         self.setBackgroundColor('white')
 
+    def keyPressEvent(self, event):
+        key = event.key()
+        if key in (qt.Qt.Key_Left, qt.Qt.Key_Down):
+            self.sigSliceChanged.emit(-1)
+
+        elif key in (qt.Qt.Key_Right, qt.Qt.Key_Up):
+            self.sigSliceChanged.emit(1)
+
+        elif key == qt.Qt.Key_PageDown:
+            self.sigSliceChanged.emit(-10)
+
+        elif key == qt.Qt.Key_PageUp:
+            self.sigSliceChanged.emit(10)
+
+        else:
+            # Only call base class implementation when key is not handled.
+            # See QWidget.keyPressEvent for details.
+            super(Plot, self).keyPressEvent(event)
 
 class VolumeView(qt.QMainWindow):
     """3D volume slice viewer
@@ -751,7 +794,7 @@ class VolumeView(qt.QMainWindow):
         self._topPlot = Plot(parent=self, backend=backend)
         self._topPlot.setDefaultColormap(self._colormap)
         self._topPlot.setKeepDataAspectRatio(True)
-        self._topPlot.setGraphTitle("Top")
+        self._topPlot.setGraphTitle("Axial")
         self._topPlot.getXAxis().setLabel("X")
         self._topPlot.getYAxis().setLabel("Y")
         self._topPlot.setInteractiveMode('pan')
@@ -762,6 +805,7 @@ class VolumeView(qt.QMainWindow):
                 0, legend='front-marker', text='front'))
             )
         self._topPlot.sigPlotSignal.connect(self.__plotChanged)
+        self._topPlot.sigSliceChanged.connect(self.__topPlotSliceChanged)
         
         self._frontPlot = Plot(parent=self, backend=backend)
         self._frontPlot.setDefaultColormap(self._colormap)
@@ -777,6 +821,7 @@ class VolumeView(qt.QMainWindow):
                 0, legend='top-marker', text='top'))
             )
         self._frontPlot.sigPlotSignal.connect(self.__plotChanged)
+        self._frontPlot.sigSliceChanged.connect(self.__frontPlotSliceChanged)
 
         self._sidePlot = Plot(parent=self, backend=backend)
         self._sidePlot.setDefaultColormap(self._colormap)
@@ -792,6 +837,7 @@ class VolumeView(qt.QMainWindow):
                 0, legend='top-marker', text='top'))
             )
         self._sidePlot.sigPlotSignal.connect(self.__plotChanged)
+        self._sidePlot.sigSliceChanged.connect(self.__sidePlotSliceChanged)
 
         for markers in (self._topPlotMarkers, self._frontPlotMarkers, self._sidePlotMarkers):
             for marker in markers:
@@ -879,7 +925,7 @@ class VolumeView(qt.QMainWindow):
 
         form = qt.QFormLayout()
         layout.addLayout(form, 3, 0, 1, 2)
-        form.addRow("Top (along Z)", self._topBrowser)
+        form.addRow("Axial (along Z)", self._topBrowser)
         form.addRow("Front (along Y)", self._frontBrowser)
         form.addRow("Side (along X)", self._sideBrowser)
         
@@ -908,6 +954,15 @@ class VolumeView(qt.QMainWindow):
 
         toolbar.addAction(plot_actions.control.ColormapAction(
             parent=self, plot=self._topPlot))
+
+    def __topPlotSliceChanged(self, direction):
+        self._topBrowser.setValue(self._topBrowser.value() + direction)
+
+    def __frontPlotSliceChanged(self, direction):
+        self._frontBrowser.setValue(self._frontBrowser.value() + direction)
+
+    def __sidePlotSliceChanged(self, direction):
+        self._sideBrowser.setValue(self._sideBrowser.value() + direction)
 
     def __panMode(self, checked):
         action = self.sender()
@@ -1029,6 +1084,13 @@ class VolumeView(qt.QMainWindow):
     def __update(self):
         self.setData(self.getData())  # TODO use a better way to trigger refresh
 
+    def getUnit(self):
+        """Returns the unit in use
+
+        :rtype: str
+        """
+        return 'mm'
+
     def getScans(self):
         """Returns the list of available scans
 
@@ -1134,7 +1196,7 @@ class VolumeView(qt.QMainWindow):
 
         if self._data is None:
             self._topPlot.remove('image')
-            self._topPlot.setGraphTitle("Top")
+            self._topPlot.setGraphTitle("Axial")
             self._frontPlot.remove('image')
             self._frontPlot.setGraphTitle("Front")
             self._sidePlot.remove('image')
@@ -1173,25 +1235,29 @@ class VolumeView(qt.QMainWindow):
 
         res_z, res_y, res_x = self.getResolution()
         oz, oy, ox = self.getOrigin()
+        unit = self.getUnit()
 
         if 'top' in faces:
             z = self._topBrowser.value()
+            zpos = oz + z * res_z
             image = self._data[z, :, :]
-            self._topPlot.setGraphTitle("Top (%d)" % z)
+            self._topPlot.setGraphTitle("Axial %g%s (%d)" % (zpos, unit, z))
             self._topPlot.addImage(image, scale=(res_x, res_y), origin=(ox, oy),
                 legend='image', resetzoom=False, copy=False)
 
         if 'front' in faces:
             y = self._frontBrowser.value()
+            ypos = oy + y * res_y
             image = self._data[:, y, :]
-            self._frontPlot.setGraphTitle("Front (%d)" % y)
+            self._frontPlot.setGraphTitle("Front %g%s (%d)" % (ypos, unit, y))
             self._frontPlot.addImage(image, scale=(res_x, res_z), origin=(ox, oz),
                 legend='image', resetzoom=False, copy=False)
 
         if 'side' in faces:
             x = self._sideBrowser.value()
+            xpos = ox + x * res_x
             image = self._data[:, :, x]
-            self._sidePlot.setGraphTitle("Side (%d)" % x)
+            self._sidePlot.setGraphTitle("Side %g%s (%d)" % (xpos, unit, x))
             self._sidePlot.addImage(image, scale=(res_y, res_z), origin=(oy, oz),
                     legend='image', resetzoom=False, copy=False)
  
