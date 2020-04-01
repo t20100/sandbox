@@ -356,7 +356,7 @@ if __name__ == '__main__':
     w.show()
 
     w.setXData(x)
-    #w.appendCurves(data)
+    w.appendCurves(data)
     w.resetZoom()
 
     running = True
@@ -364,7 +364,7 @@ if __name__ == '__main__':
     def addCurves():
         index = 0
         while running:
-            time.sleep(0.1)
+            time.sleep(0.5)
             w.appendCurves(data[index % len(data)])
             index += 1
 

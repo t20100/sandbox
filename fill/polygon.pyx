@@ -182,3 +182,161 @@ def polygon(y, x, shape):
                 is_inside = current ^ is_inside
 
     return rr, cc
+
+
+def polygon_sort(y, x, shape):
+    """Returns included points, using sort of intersection points"""
+    x = np.asanyarray(x)
+    y = np.asanyarray(y)
+
+    cdef Py_ssize_t nr_verts = x.shape[0]
+    cdef Py_ssize_t minr = int(max(0, y.min()))
+    cdef Py_ssize_t maxr = int(ceil(y.max()))
+    cdef Py_ssize_t minc = int(max(0, x.min()))
+    cdef Py_ssize_t maxc = int(ceil(x.max()))
+
+    # make sure output coordinates do not exceed image size
+    if shape is not None:
+        maxr = min(shape[0] - 1, maxr)
+        maxc = min(shape[1] - 1, maxc)
+
+    cdef Py_ssize_t width
+    width = maxc + 1 # TODO remove minc, maxc
+
+    cdef Py_ssize_t r, c
+
+    # make contigous arrays for r, c coordinates
+    cdef double[:] contiguous_rdata, contiguous_cdata
+    contiguous_rdata = np.ascontiguousarray(y, dtype=np.double)
+    contiguous_cdata = np.ascontiguousarray(x, dtype=np.double)
+
+    cdef int col_min, col_max
+    cdef int index
+    cdef cnp.intp_t row, col
+    cdef double pt1row, pt1col, pt2row, pt2col  # segment end points
+    cdef int xinters, is_inside, current
+    cdef int start_col, end_col
+
+    # output coordinate arrays
+    cdef list rr = list()
+    cdef list cc = list()
+    cdef list intersections
+    #cdef long[:] sorted_intersections
+
+    for row in range(minr, maxr+1):
+        # Adapted from http://alienryderflex.com/polygon_fill/
+
+        intersections = list()
+
+        pt1row = contiguous_rdata[nr_verts-1]
+        pt1col = contiguous_cdata[nr_verts-1]
+        col_min = width - 1
+        col_max = 0
+        is_inside = 0
+
+        for index in range(nr_verts):
+            pt2row = contiguous_rdata[index]
+            pt2col = contiguous_cdata[index]
+
+            if ((pt1row <= row < pt2row) or (pt2row <= row < pt1row)):
+                # Intersection casted to int so that ]x, x+1] => x
+                xinters = (<int>ceil(pt1col + (row - pt1row) *
+                           (pt2col - pt1col) / (pt2row - pt1row)))
+
+                intersections.append(xinters)
+
+            pt1row = pt2row
+            pt1col = pt2col
+
+
+        # Sort
+        intersections.sort()
+
+        # Fill pixels between pairs
+        for index in range(0, len(intersections), 2):
+            start_point = intersections[index]
+            end_point = intersections[index + 1]
+
+            if end_point <= 0:
+                continue
+            if start_point > maxc:
+                break
+
+            if start_point < 0:
+                start_point = 0
+            if end_point > maxc:
+                end_point = maxc + 1
+
+            if start_point == end_point:
+                continue
+            #    #end_point += 1
+
+            rr.extend([row] * (end_point - start_point))
+            cc.extend(range(start_point, end_point))
+
+    return rr, cc
+
+
+def _pairs(iterable):
+    "s -> (s0,s1), (s2,s3), (s4, s5), ..."
+    a = iter(iterable)
+    return zip(a, a)
+
+def polygon_scanline(image, yp, xp):
+    """Draw polygon onto image using a scanline algorithm.
+
+    Attributes
+    ----------
+    yp, xp : double array
+    Coordinates of polygon.
+
+    References
+    ----------
+    .. [1] "Intersection point of two lines in 2 dimensions",
+    http://paulbourke.net/geometry/pointlineplane/
+    .. [2] UC Davis ECS175 (Introduction to Computer Graphics) notes,
+    http://www.cs.ucdavis.edu/~ma/ECS175_S00/Notes/0411_b.pdf
+    """
+    yp = list(yp)
+    xp = list(xp)
+
+    y_start, y_end = np.min(yp), np.max(yp)
+    if not ((yp[0] == yp[-1]) and (xp[0] == xp[-1])):
+        yp.append(yp[0])
+        xp.append(xp[0])
+
+    ys = zip(yp[:-1], yp[1:])
+    xs = zip(xp[:-1], xp[1:])
+
+    h, w = image.shape[:2]
+
+    segments = zip(xs, ys)
+
+    for y in range(max(0, y_start), min(h, y_end)):
+        intersections = []
+
+        for ((x0, x1), (y0, y1)) in segments:
+            if y0 == y1:
+                continue
+
+            xmin = min(x0, x1)
+            xmax = max(x0, x1)
+            ymin = min(y0, y1)
+            ymax = max(y0, y1)
+
+            if not (ymin <= y <= ymax):
+                continue
+
+            xi = ((x1 - x0) * (y - y0) - (y1 - y0) * (-x0)) / (y1 - y0)
+
+            if (xmin <= xi <= xmax):
+                if (y == y0 or y == y1) and (y != ymin):
+                    continue
+                intersections.append(xi)
+
+        intersections = np.sort(intersections)
+
+        for x0, x1 in _pairs(intersections):
+            image[y, max(0, np.ceil(x0)):min(np.ceil(x1), w)] = 1
+
+    return image
