@@ -60,6 +60,7 @@
 # - Make silx plot action work for multiple plots at once
 # - colormap: sqrt and gamma
 
+from collections import namedtuple
 import functools
 import logging
 import os
@@ -727,10 +728,13 @@ class Plot(plot.PlotWidget):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setDataBackgroundColor('white')
         self.setPanWithArrowKeys(False)
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.setFocus(qt.Qt.OtherFocusReason)
+
+        self.setDataBackgroundColor('white')
+        self.setKeepDataAspectRatio(True)
+        self.setInteractiveMode('pan')
 
     def focusInEvent(self, event):
         self.setBackgroundColor((237, 251, 255, 255))
@@ -758,6 +762,191 @@ class Plot(plot.PlotWidget):
             # Only call base class implementation when key is not handled.
             # See QWidget.keyPressEvent for details.
             super(Plot, self).keyPressEvent(event)
+
+
+class SlicePlotManager(object):
+    """Bundles a plot and slider to handle states"""
+
+    Mode = namedtuple('Mode', ['title', 'axis', 'xaxis', 'yaxis', 'unit'])
+
+    DEFAULT = Mode(title='Slice',
+                   axis='Index',
+                   xaxis='X',
+                   yaxis='Y',
+                   unit='mm')
+
+    AXIAL = Mode(title='Axial',
+                 axis='Z',
+                 xaxis='X',
+                 yaxis='Y',
+                 unit='mm')
+
+    FRONT = Mode(title='Front',
+                 axis='Y',
+                 xaxis='X',
+                 yaxis='Z',
+                 unit='mm')
+
+    SIDE = Mode(title='Side',
+                axis='X',
+                xaxis='Y',
+                yaxis='Z',
+                unit='mm')
+
+    def __init__(self, parent, backend, mode=DEFAULT):
+        self.__range = 0, 0
+        self.__index = 0
+        self.__data = numpy.empty((0, 0))
+        self.__origin = 0., 0.
+        self.__scale = 1., 1.
+        self.__normalization = 0., 1.
+        self.__mode = mode
+
+        self.__plotWidget = Plot(parent, backend)
+        self.__slider = HorizontalSliderWithBrowser(parent)
+        self.__slider.setRange(0, 0)
+
+        self.__plotWidget.sigSliceChanged.connect(self.__plotSliceChanged)
+
+        self.__plotWidget.getXAxis().setLabel(
+            '%s (%s)' % (self.__mode.xaxis, self.__mode.unit))
+        self.__plotWidget.getYAxis().setLabel(
+            '%s (%s)' % (self.__mode.yaxis, self.__mode.unit))
+
+        self.__updatePlotTitle()
+
+    def __plotSliceChanged(self, step):
+        """Handle update of slice index from the plot.
+
+        :param int step:
+        """
+        self.__slider.setValue(self.__slider.value() + step)
+
+    def getPlotWidget(self):
+        """Returns the managed :class:`PlotWidget`.
+
+        :rtype: PlotWidget
+        """
+        return self.__plotWidget
+
+    def getHorizontalSliderWithBrowser(self):
+        """Returns the managed :class:`HorizontalSliderWithBrowser`.
+
+        :rtype: HorizontalSliderWithBrowser
+        """
+        return self.__slider
+
+    def setIndexRange(self, min_, max_):
+        """Set the range of the slice indices.
+
+        :param int min_:
+        :param int max_:
+        """
+        min_, max_ = int(min_), int(max_)
+        assert min_ <= max_
+        assert min_ <= self.getIndex() <= max_
+        self.__range = min_, max_
+        self.__slider.setRange(*self.__range)
+
+    def getIndexRange(self):
+        """Returns the range of the slice indices.
+
+        :returns: (min, max)
+        """
+        return self.__range
+
+    def setSlice(self, data, index, copy=True):
+        """Set the slice to display.
+
+        :param numpy.ndarray data: Data of the slice
+        :param int index: Index of the slice (must be within slice range)
+        :param bool copy: True to copy the data, False to use as is.
+        """
+        index = int(index)
+        min_, max_ = self.getIndexRange()
+        assert min_ <= index <= max_
+        self.__index = index
+        self.__data = numpy.array(data, copy=copy)
+        self.__updatePlotTitle()
+
+    def getIndex(self):
+        """Returns the current slice index.
+
+        :rtype: int
+        """
+        return self.__index
+
+    def getData(self, copy=True):
+        """Returns the data of the current slice.
+
+        :param bool copy:
+            True to get a copy of data, False to get internal data.
+        """
+        return numpy.array(self.__data, copy=copy)
+
+    def setSliceOrigin(self, ox, oy):
+        """Set origin to use for the slice.
+
+        :param float ox:
+        :param float oy:
+        """
+        self.__origin = float(ox), float(oy)
+
+    def getSliceOrigin(self):
+        """Returns the origin of the slice.
+
+        :returns: (ox, oy)
+        """
+        return self.__origin
+
+    def setSliceScale(self, sx, sy):
+        """Set the scale factors of the slice.
+
+        :param float sx:
+        :param float sy:
+        """
+        self.__scale = float(sx), float(sy)
+
+    def getSliceScale(self):
+        """Returns the scale factor on each axis.
+
+        :returns: (sx, sy)
+        """
+        return self.__scale
+
+    def setNormalization(self, origin, scale):
+        """Set the origin and scale along the axis perpendicular to the slices.
+
+        :param float origin:
+        :param float scale:
+        """
+        self.__normalization = float(origin), float(scale)
+
+    def getNormalization(self):
+        """Returns the origin and scale along the axis perpendicular to the slices.
+
+        :returns: (origin, scale factor)
+        """
+        return self.__normalization
+
+    def getMode(self):
+        """Returns the mode in use.
+
+        :rtype: Mode
+        """
+        return self.__mode
+
+    def __updatePlotTitle(self):
+        """Update the plot title"""
+        plot = self.getPlotWidget()
+        mode = self.getMode()
+        index = self.getIndex()
+        origin, scale = self.getNormalization()
+        position = origin + index * scale
+
+        plot.setGraphTitle(
+            '%s %f%s (%d)' % (mode.title, position, mode.unit, index))
+
 
 class VolumeView(qt.QMainWindow):
     """3D volume slice viewer
