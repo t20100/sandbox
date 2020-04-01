@@ -1271,8 +1271,8 @@ if __name__ == "__main__":
     print('Loaded', data_view.shape)
 
     window.setOrigin(1, 2, 3)
-    #window.setResolution(50*10e-5, 50*10e-5, 50*10e-5)
-    window.setResolution(50*10e-6, 50*10e-6, 50*10e-6)
+    window.setResolution(50*10e-5, 50*10e-5, 50*10e-5)
+    #window.setResolution(50*10e-6, 50*10e-6, 50*10e-6)
     window.setData(data_view)
 
     sys.exit(app.exec_())
