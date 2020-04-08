@@ -717,17 +717,156 @@ class ROI3DTableWidget(qt.QTableWidget):
 
 # Main window
 
-class Plot(plot.PlotWidget):
-    """Plot widget with focus feedback"""
+class SliceModel(qt.QObject):
+    """Handle current state of a slice"""
 
-    sigSliceChanged = qt.Signal(int)
-    """Signal emitted when arrow keys are pressed.
+    sigCurrentIndexChanged = qt.Signal(int)
+    """Signal emitted when slice index changed"""
 
-    It provides a direction information: 1 or -1.
-    """
+    AXIAL = dict(title='Axial',
+                 axis='Z',
+                 xaxis='X',
+                 yaxis='Y')
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    FRONT = dict(title='Front',
+                 axis='Y',
+                 xaxis='X',
+                 yaxis='Z')
+
+    SIDE = dict(title='Side',
+                axis='X',
+                xaxis='Y',
+                yaxis='Z')
+
+    def __init__(
+            self, title='Slice', axis='Index', xaxis='X', yaxis='Y', unit='mm',
+            origin=(0., 0.), scale=(1., 1.),
+            range_=(0, 0), normalization=(0., 1.),
+            dataProvider=None):
+        super().__init__()
+        self.__title = title
+        self.__axis = axis
+        self.__xaxis = xaxis
+        self.__yaxis = yaxis
+        self.__unit = unit
+        self.__origin = origin
+        self.__scale = scale
+        self.__range = range_
+        self.__normalization = normalization
+        self.__dataProvider = dataProvider
+        self.__index = min(range_)
+
+    # Static information
+
+    def getTitle(self) -> str:
+        """Returns the main title prefix"""
+        return self.__title
+
+    def getAxisName(self) -> str:
+        """Returns the name of the axis perpendicular to the slice"""
+        return self.__axis
+
+    def getXAxisName(self) -> str:
+        """Returns the name of the X axis"""
+        return self.__xaxis
+
+    def getYAxisName(self) -> str:
+        """Returns the name of the Y axis"""
+        return self.__yaxis
+
+    def getUnit(self) -> str:
+        """Returns the unit in use"""
+        return self.__unit
+
+    def getSliceOrigin(self):
+        """Returns the origin of the slice.
+
+        :returns: (ox, oy)
+        """
+        return self.__origin
+
+    def getSliceScale(self):
+        """Returns the scale factor on each axis.
+
+        :returns: (sx, sy)
+        """
+        return self.__scale
+
+    def getIndexRange(self):
+        """Returns the range of the slice indices.
+
+        :returns: (min, max)
+        """
+        return self.__range
+
+    def getNormalization(self):
+        """Returns the origin and scale along the axis perpendicular to the slices.
+
+        :returns: (origin, scale factor)
+        """
+        return self.__normalization
+
+    def getXAxisTitle(self) -> str:
+        """Returns the title to use for the plot X axis"""
+        return '%s (%s)' % (self.getXAxisName(), self.getUnit())
+
+    def getYAxisTitle(self) -> str:
+        """Returns the title to use for the plot Y axis"""
+        return '%s (%s)' % (self.getYAxisName(), self.getUnit())
+
+    # Dynamic information
+
+    def setCurrentIndex(self, index: int) -> None:
+        """Set the index of the slice to display.
+
+        :param int index: Index of the slice (clipped to slice range)
+        """
+        min_, max_ = self.getIndexRange()
+        index = numpy.clip(int(index), min_, max_)
+        if index != self.__index:
+            self.__index = index
+            self.sigCurrentIndexChanged.emit(index)
+
+    def getCurrentIndex(self) -> int:
+        """Returns the current slice index."""
+        return self.__index
+
+    def setSlicePosition(self, position: float) -> None:
+        """Set the index of the slice from its normalized position"""
+        origin, scale = self.getNormalization()
+        self.setCurrentIndex(int((position - origin) / scale))
+
+    def getSlicePosition(self) -> int:
+        """Returns the position of the slice with normalization"""
+        origin, scale = self.getNormalization()
+        return origin + self.getCurrentIndex() * scale
+
+    def getData(self):
+        """Returns the current slice data"""
+        provider = self.__dataProvider
+        if provider is None:
+            data = numpy.empty((0, 0), dtype=numpy.float32)
+        else:
+            data = provider(self.getCurrentIndex())
+            if data is None:
+                data = numpy.empty((0, 0), dtype=numpy.float32)
+        return data
+
+    def getPlotTitle(self) -> str:
+        """Returns title to use for plot"""
+        return '%s %g %s (slice %d)' % (
+            self.getTitle(),
+            self.getSlicePosition(),
+            self.getUnit(),
+            self.getCurrentIndex())
+
+
+class SlicePlot(plot.PlotWidget):
+    """Bundles a plot and slider to handle states"""
+
+    def __init__(self, parent, backend, model):
+        super().__init__(parent=parent, backend=backend)
+
         self.setPanWithArrowKeys(False)
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.setFocus(qt.Qt.OtherFocusReason)
@@ -735,6 +874,9 @@ class Plot(plot.PlotWidget):
         self.setDataBackgroundColor('white')
         self.setKeepDataAspectRatio(True)
         self.setInteractiveMode('pan')
+
+        self.__model = None
+        self.setModel(model)
 
     def focusInEvent(self, event):
         self.setBackgroundColor((237, 251, 255, 255))
@@ -745,207 +887,107 @@ class Plot(plot.PlotWidget):
         self.setBackgroundColor('white')
 
     def keyPressEvent(self, event):
-        key = event.key()
-        if key in (qt.Qt.Key_Left, qt.Qt.Key_Down):
-            self.sigSliceChanged.emit(-1)
+        model = self.getModel()
+        if model is not None:
+            index = model.getCurrentIndex()
 
-        elif key in (qt.Qt.Key_Right, qt.Qt.Key_Up):
-            self.sigSliceChanged.emit(1)
+            key = event.key()
+            if key in (qt.Qt.Key_Left, qt.Qt.Key_Down):
+                model.setCurrentIndex(index - 1)
+                return
+            elif key in (qt.Qt.Key_Right, qt.Qt.Key_Up):
+                model.setCurrentIndex(index + 1)
+                return
+            elif key == qt.Qt.Key_PageDown:
+                model.setCurrentIndex(index - 10)
+                return
+            elif key == qt.Qt.Key_PageUp:
+                model.setCurrentIndex(index + 10)
+                return
 
-        elif key == qt.Qt.Key_PageDown:
-            self.sigSliceChanged.emit(-10)
+        # Only call base class implementation when key is not handled.
+        # See QWidget.keyPressEvent for details.
+        super(Plot, self).keyPressEvent(event)
 
-        elif key == qt.Qt.Key_PageUp:
-            self.sigSliceChanged.emit(10)
+    def setModel(self, model):
+        """Set the model to associate to this slider
 
+        :param SliceModel model:
+        """
+        if self.__model is not None:
+            self.__model.sigCurrentIndexChanged.disconnect(
+                self.__sliceIndexChanged)
+
+        self.__model = model
+
+        if model is None:
+            xlabel, ylabel = '', ''
         else:
-            # Only call base class implementation when key is not handled.
-            # See QWidget.keyPressEvent for details.
-            super(Plot, self).keyPressEvent(event)
+            xlabel = model.getXAxisTitle()
+            ylabel = model.getYAxisTitle()
+
+            model.sigCurrentIndexChanged.connect(self.__sliceIndexChanged)
+            self.__sliceIndexChanged(model.getCurrentIndex())
+
+        self.getXAxis().setLabel(xlabel)
+        self.getYAxis().setLabel(ylabel)
+
+    def getModel(self):
+        """Returns the :class:`SliceModel` associated to this plot"""
+        return self.__model
+
+    def __sliceIndexChanged(self, index: int) -> None:
+        """Handle change of slice index"""
+        model = self.getModel()
+        self.addImage(model.getData(),
+                      scale=model.getSliceScale(),
+                      origin=model.getSliceOrigin(),
+                      legend='image',
+                      resetzoom=False,
+                      copy=False)
+        self.setGraphTitle(model.getPlotTitle())
+
+    def addXMarkerItem(self, *args, **kwargs):
+        """Same as :meth:`addXMarker` but returns an item"""
+        return self._getMarker(self.addXMarker(*args, **kwargs))
+
+    def addYMarkerItem(self, *args, **kwargs):
+        """Same as :meth:`addYMarker` but returns an item"""
+        return self._getMarker(self.addYMarker(*args, **kwargs))
 
 
-class SlicePlotManager(object):
-    """Bundles a plot and slider to handle states"""
+class SliceBrowser(HorizontalSliderWithBrowser):
+    """Frame browser and slider associated to a slice model
 
-    Mode = namedtuple('Mode', ['title', 'axis', 'xaxis', 'yaxis', 'unit'])
+    :param QWidget parent:
+    :param SliceModel model:
+    """
 
-    DEFAULT = Mode(title='Slice',
-                   axis='Index',
-                   xaxis='X',
-                   yaxis='Y',
-                   unit='mm')
+    def __init__(self, parent, model=None):
+        super().__init__(parent)
+        self.__model = None
+        self.setModel(model)
 
-    AXIAL = Mode(title='Axial',
-                 axis='Z',
-                 xaxis='X',
-                 yaxis='Y',
-                 unit='mm')
+    def setModel(self, model):
+        """Set the model associated to this slider
 
-    FRONT = Mode(title='Front',
-                 axis='Y',
-                 xaxis='X',
-                 yaxis='Z',
-                 unit='mm')
-
-    SIDE = Mode(title='Side',
-                axis='X',
-                xaxis='Y',
-                yaxis='Z',
-                unit='mm')
-
-    def __init__(self, parent, backend, mode=DEFAULT):
-        self.__range = 0, 0
-        self.__index = 0
-        self.__data = numpy.empty((0, 0))
-        self.__origin = 0., 0.
-        self.__scale = 1., 1.
-        self.__normalization = 0., 1.
-        self.__mode = mode
-
-        self.__plotWidget = Plot(parent, backend)
-        self.__slider = HorizontalSliderWithBrowser(parent)
-        self.__slider.setRange(0, 0)
-
-        self.__plotWidget.sigSliceChanged.connect(self.__plotSliceChanged)
-
-        self.__plotWidget.getXAxis().setLabel(
-            '%s (%s)' % (self.__mode.xaxis, self.__mode.unit))
-        self.__plotWidget.getYAxis().setLabel(
-            '%s (%s)' % (self.__mode.yaxis, self.__mode.unit))
-
-        self.__updatePlotTitle()
-
-    def __plotSliceChanged(self, step):
-        """Handle update of slice index from the plot.
-
-        :param int step:
+        :param SliceModel model:
         """
-        self.__slider.setValue(self.__slider.value() + step)
+        if self.__model is not None:
+            self.__model.sigCurrentIndexChanged.disconnect(self.setValue)
+            self.valueChanged.disconnect(self.__model.setCurrentIndex)
 
-    def getPlotWidget(self):
-        """Returns the managed :class:`PlotWidget`.
+        self.__model = model
 
-        :rtype: PlotWidget
-        """
-        return self.__plotWidget
+        if model is not None:
+            self.setRange(*model.getIndexRange())
+            self.setValue(model.getCurrentIndex())
+            model.sigCurrentIndexChanged.connect(self.setValue)
+            self.valueChanged.connect(model.setCurrentIndex)
 
-    def getHorizontalSliderWithBrowser(self):
-        """Returns the managed :class:`HorizontalSliderWithBrowser`.
-
-        :rtype: HorizontalSliderWithBrowser
-        """
-        return self.__slider
-
-    def setIndexRange(self, min_, max_):
-        """Set the range of the slice indices.
-
-        :param int min_:
-        :param int max_:
-        """
-        min_, max_ = int(min_), int(max_)
-        assert min_ <= max_
-        assert min_ <= self.getIndex() <= max_
-        self.__range = min_, max_
-        self.__slider.setRange(*self.__range)
-
-    def getIndexRange(self):
-        """Returns the range of the slice indices.
-
-        :returns: (min, max)
-        """
-        return self.__range
-
-    def setSlice(self, data, index, copy=True):
-        """Set the slice to display.
-
-        :param numpy.ndarray data: Data of the slice
-        :param int index: Index of the slice (must be within slice range)
-        :param bool copy: True to copy the data, False to use as is.
-        """
-        index = int(index)
-        min_, max_ = self.getIndexRange()
-        assert min_ <= index <= max_
-        self.__index = index
-        self.__data = numpy.array(data, copy=copy)
-        self.__updatePlotTitle()
-
-    def getIndex(self):
-        """Returns the current slice index.
-
-        :rtype: int
-        """
-        return self.__index
-
-    def getData(self, copy=True):
-        """Returns the data of the current slice.
-
-        :param bool copy:
-            True to get a copy of data, False to get internal data.
-        """
-        return numpy.array(self.__data, copy=copy)
-
-    def setSliceOrigin(self, ox, oy):
-        """Set origin to use for the slice.
-
-        :param float ox:
-        :param float oy:
-        """
-        self.__origin = float(ox), float(oy)
-
-    def getSliceOrigin(self):
-        """Returns the origin of the slice.
-
-        :returns: (ox, oy)
-        """
-        return self.__origin
-
-    def setSliceScale(self, sx, sy):
-        """Set the scale factors of the slice.
-
-        :param float sx:
-        :param float sy:
-        """
-        self.__scale = float(sx), float(sy)
-
-    def getSliceScale(self):
-        """Returns the scale factor on each axis.
-
-        :returns: (sx, sy)
-        """
-        return self.__scale
-
-    def setNormalization(self, origin, scale):
-        """Set the origin and scale along the axis perpendicular to the slices.
-
-        :param float origin:
-        :param float scale:
-        """
-        self.__normalization = float(origin), float(scale)
-
-    def getNormalization(self):
-        """Returns the origin and scale along the axis perpendicular to the slices.
-
-        :returns: (origin, scale factor)
-        """
-        return self.__normalization
-
-    def getMode(self):
-        """Returns the mode in use.
-
-        :rtype: Mode
-        """
-        return self.__mode
-
-    def __updatePlotTitle(self):
-        """Update the plot title"""
-        plot = self.getPlotWidget()
-        mode = self.getMode()
-        index = self.getIndex()
-        origin, scale = self.getNormalization()
-        position = origin + index * scale
-
-        plot.setGraphTitle(
-            '%s %f%s (%d)' % (mode.title, position, mode.unit, index))
+    def getModel(self):
+        """Returns the :class:`SliceModel` associated to this plot"""
+        return self.__model
 
 
 class VolumeView(qt.QMainWindow):
@@ -963,7 +1005,7 @@ class VolumeView(qt.QMainWindow):
         self.__roi_index = 0
         self.__resolution = 1., 1., 1.
         self.__origin = 0., 0., 0.
-        self._data = None
+        self.__data = None
 
         self.__handleMarker = True
 
@@ -979,54 +1021,38 @@ class VolumeView(qt.QMainWindow):
         self._createROIAction.setCheckable(True)
         self._createROIAction.setChecked(False)
 
-        # Plot widgets
-        self._topPlot = Plot(parent=self, backend=backend)
-        self._topPlot.setDefaultColormap(self._colormap)
-        self._topPlot.setKeepDataAspectRatio(True)
-        self._topPlot.setGraphTitle("Axial")
-        self._topPlot.getXAxis().setLabel("X")
-        self._topPlot.getYAxis().setLabel("Y")
-        self._topPlot.setInteractiveMode('pan')
-        self._topPlotMarkers = (
-            self._topPlot._getMarker(self._topPlot.addXMarker(
-                0, legend='side-marker', text='side')),
-            self._topPlot._getMarker(self._topPlot.addYMarker(
-                0, legend='front-marker', text='front'))
-            )
-        self._topPlot.sigPlotSignal.connect(self.__plotChanged)
-        self._topPlot.sigSliceChanged.connect(self.__topPlotSliceChanged)
-        
-        self._frontPlot = Plot(parent=self, backend=backend)
-        self._frontPlot.setDefaultColormap(self._colormap)
-        self._frontPlot.setKeepDataAspectRatio(True)
-        self._frontPlot.setGraphTitle("Front")
-        self._frontPlot.getXAxis().setLabel("X")
-        self._frontPlot.getYAxis().setLabel("Z")
-        self._frontPlot.setInteractiveMode('pan')
-        self._frontPlotMarkers = (
-            self._frontPlot._getMarker(self._frontPlot.addXMarker(
-                0, legend='side-marker', text='side')),
-            self._frontPlot._getMarker(self._frontPlot.addYMarker(
-                0, legend='top-marker', text='top'))
-            )
-        self._frontPlot.sigPlotSignal.connect(self.__plotChanged)
-        self._frontPlot.sigSliceChanged.connect(self.__frontPlotSliceChanged)
+        # Slice model
+        self._topSlice, self._frontSlice, self._sideSlice = None, None, None
 
-        self._sidePlot = Plot(parent=self, backend=backend)
+        # frame browsers
+        self._topBrowser = SliceBrowser(self, self._topSlice)
+        self._frontBrowser = SliceBrowser(self, self._frontSlice)
+        self._sideBrowser = SliceBrowser(self, self._sideSlice)
+
+        # Plot widgets
+        self._topPlot = SlicePlot(
+            parent=self, backend=backend, model=self._topSlice)
+        self._topPlot.setDefaultColormap(self._colormap)
+        self._topPlotMarkers = (
+            self._topPlot.addXMarkerItem(0, legend='side-marker', text='side'),
+            self._topPlot.addYMarkerItem(0, legend='front-marker', text='front'))
+
+        self._frontPlot = SlicePlot(
+            parent=self, backend=backend, model=self._frontSlice)
+        self._frontPlot.setDefaultColormap(self._colormap)
+        self._frontPlotMarkers = (
+            self._frontPlot.addXMarkerItem(0, legend='side-marker', text='side'),
+            self._frontPlot.addYMarkerItem(0, legend='top-marker', text='top'))
+
+        self._sidePlot = SlicePlot(
+            parent=self, backend=backend, model=self._sideSlice)
         self._sidePlot.setDefaultColormap(self._colormap)
-        self._sidePlot.setKeepDataAspectRatio(True)
-        self._sidePlot.setGraphTitle("Side")
-        self._sidePlot.getXAxis().setLabel("Y")
-        self._sidePlot.getYAxis().setLabel("Z")
-        self._sidePlot.setInteractiveMode('pan')
         self._sidePlotMarkers = (
-            self._sidePlot._getMarker(self._sidePlot.addXMarker(
-                0, legend='front-marker', text='front')),
-            self._sidePlot._getMarker(self._sidePlot.addYMarker(
-                0, legend='top-marker', text='top'))
-            )
-        self._sidePlot.sigPlotSignal.connect(self.__plotChanged)
-        self._sidePlot.sigSliceChanged.connect(self.__sidePlotSliceChanged)
+            self._sidePlot.addXMarkerItem(0, legend='front-marker', text='front'),
+            self._sidePlot.addYMarkerItem(0, legend='top-marker', text='top'))
+
+        for plot in (self._topPlot, self._frontPlot, self._sidePlot):
+            plot.sigPlotSignal.connect(self.__plotChanged)
 
         for markers in (self._topPlotMarkers, self._frontPlotMarkers, self._sidePlotMarkers):
             for marker in markers:
@@ -1036,6 +1062,8 @@ class VolumeView(qt.QMainWindow):
                 marker.setColor('pink')
                 marker.setLineStyle('--')
                 marker.sigItemChanged.connect(self.__lineMarkerChanged)
+
+        self.__update()  # Update models
 
         # Axes constraints
         self._constraints = [
@@ -1059,14 +1087,6 @@ class VolumeView(qt.QMainWindow):
         palette.setColor(qt.QPalette.Background, qt.Qt.white)
         palette.setColor(qt.QPalette.Window, qt.Qt.white)
         self._colorbar.setPalette(palette)
-
-        # frame browsers
-        self._topBrowser = HorizontalSliderWithBrowser(self)
-        self._frontBrowser = HorizontalSliderWithBrowser(self)
-        self._sideBrowser = HorizontalSliderWithBrowser(self)
-        for browser in (self._topBrowser, self._frontBrowser, self._sideBrowser):
-            browser.setRange(0, 0)
-            browser.valueChanged.connect(self._browserChanged)
 
         # ROI group
 
@@ -1114,9 +1134,17 @@ class VolumeView(qt.QMainWindow):
 
         form = qt.QFormLayout()
         layout.addLayout(form, 3, 0, 1, 2)
-        form.addRow("Axial (along Z)", self._topBrowser)
-        form.addRow("Front (along Y)", self._frontBrowser)
-        form.addRow("Side (along X)", self._sideBrowser)
+        title = "%s (along %s)" % (self._topSlice.getTitle(),
+                                   self._topSlice.getAxisName())
+        form.addRow(title, self._topBrowser)
+
+        title = "%s (along %s)" % (self._frontSlice.getTitle(),
+                                   self._frontSlice.getAxisName())
+        form.addRow(title, self._frontBrowser)
+
+        title = "%s (along %s)" % (self._sideSlice.getTitle(),
+                                   self._sideSlice.getAxisName())
+        form.addRow(title, self._sideBrowser)
         
         # Toolbars
         toolbar = qt.QToolBar(self)
@@ -1144,15 +1172,6 @@ class VolumeView(qt.QMainWindow):
         toolbar.addAction(plot_actions.control.ColormapAction(
             parent=self, plot=self._topPlot))
 
-    def __topPlotSliceChanged(self, direction):
-        self._topBrowser.setValue(self._topBrowser.value() + direction)
-
-    def __frontPlotSliceChanged(self, direction):
-        self._frontBrowser.setValue(self._frontBrowser.value() + direction)
-
-    def __sidePlotSliceChanged(self, direction):
-        self._sideBrowser.setValue(self._sideBrowser.value() + direction)
-
     def __panMode(self, checked):
         action = self.sender()
         self._frontPlot.setInteractiveMode('pan', source=action)
@@ -1171,20 +1190,15 @@ class VolumeView(qt.QMainWindow):
         if self.__handleMarker and event is items.ItemChangedType.POSITION:
             marker = self.sender()
             face = marker.getLegend().split('-')[0]
-            res_z, res_y, res_x = self.getResolution()
-            oz, oy, ox = self.getOrigin()
 
             x, y = marker.getPosition()
             position = y if x is None else x
             if face == 'side':
-                index = int((position - ox) / res_x)
-                self._sideBrowser.setValue(index)
+                self._sideSlice.setSlicePosition(position)
             elif face == 'front':
-                index = int((position - oy) / res_y)
-                self._frontBrowser.setValue(index)
+                self._frontSlice.setSlicePosition(position)
             elif face == 'top':
-                index = int((position - oz) / res_z)
-                self._topBrowser.setValue(index)
+                self._topSlice.setSlicePosition(position)
 
     def __lineMarkerConstraint(self, dim, x, y):
         min_ = self.getOrigin()[dim]
@@ -1214,9 +1228,9 @@ class VolumeView(qt.QMainWindow):
 
         res_z, res_y, res_x = self.getResolution()
         oz, oy, ox = self.getOrigin()
-        browser_x = ox + res_x * self._sideBrowser.value()
-        browser_y = oy + res_y * self._frontBrowser.value()
-        browser_z = oz + res_z * self._topBrowser.value()
+        browser_x = self._sideSlice.getSlicePosition()
+        browser_y = self._frontSlice.getSlicePosition()
+        browser_z = self._topSlice.getSlicePosition()
         roi.setCurrentSlicePosition(browser_x, browser_y, browser_z)
 
         if plot is self._topPlot:
@@ -1232,26 +1246,24 @@ class VolumeView(qt.QMainWindow):
         roi.getROI('side').addToPlot(self._sidePlot)
         self._roitable.addROI3D(roi)
 
-    def _browserChanged(self, value):
-        """Handle frame browsers change
+    def __sliceChanged(self, value=0):
+        """Handle slice change
 
         :param int value:
         """
         self.__handleMarker = False
 
-        browser = self.sender()
-        res_z, res_y, res_x = self.getResolution()
-        oz, oy, ox = self.getOrigin()
+        model = self.sender()
 
-        if browser is self._topBrowser:
+        oz, oy, ox = self.getOrigin()
+        res_z, res_y, res_x = self.getResolution()
+        position = model.getSlicePosition()
+        if model is self._topSlice:
             face = 'top'
-            position = oz + res_z * value
-        elif browser is self._frontBrowser:
+        elif model is self._frontSlice:
             face = 'front'
-            position = oy + res_y * value
-        elif browser is self._sideBrowser:
+        elif model is self._sideSlice:
             face = 'side'
-            position = ox + res_x * value
         else:
             raise RuntimeError('Unhandled signal sender')
 
@@ -1260,18 +1272,89 @@ class VolumeView(qt.QMainWindow):
                 if marker.getLegend() == face + '-marker':
                     marker.setPosition(position, position)
 
-        self.updateSlices(face)
-
-        x = self._sideBrowser.value()
-        y = self._frontBrowser.value()
-        z = self._topBrowser.value()
+        x = self._sideSlice.getCurrentIndex()
+        y = self._frontSlice.getCurrentIndex()
+        z = self._topSlice.getCurrentIndex()
         self._roitable.setCurrentSlicePosition(
             ox + res_x * x, oy + res_y * y, oz + res_z * z)
 
         self.__handleMarker = True
 
-    def __update(self):
-        self.setData(self.getData())  # TODO use a better way to trigger refresh
+    def __update(self, resetZoom=True):
+        """Update the SliceModels because information has changed
+
+        :param bool resetZoom:
+        """
+        res_z, res_y, res_x = self.getResolution()
+        oz, oy, ox = self.getOrigin()
+        unit = self.getUnit()
+
+        if self.getData() is None:
+            depth, height, width = 0, 0, 0
+
+            topDataProvider = None
+            frontDataProvider = None
+            sideDataProvider = None
+
+        else:
+            depth, height, width = numpy.array(self.__data.shape) - 1
+
+            def topDataProvider(index):
+                return self.getData()[index, :, :]
+
+            def frontDataProvider(index):
+                return self.getData()[:, index, :]
+
+            def sideDataProvider(index):
+                return self.getData()[:, :, index]
+
+        self._topSlice = SliceModel(
+            origin=(ox, oy),
+            scale=(res_x, res_y),
+            range_=(0, depth),
+            normalization=(oz, res_z),
+            dataProvider=topDataProvider,
+            unit=unit,
+            **SliceModel.AXIAL)
+        self._topSlice.sigCurrentIndexChanged.connect(self.__sliceChanged)
+        self._topSlice.setCurrentIndex(depth // 2)
+        self._topPlot.setModel(self._topSlice)
+        self._topBrowser.setModel(self._topSlice)
+
+        self._frontSlice = SliceModel(
+            origin=(ox, oz),
+            scale=(res_x, res_z),
+            range_=(0, height),
+            normalization=(oy, res_y),
+            dataProvider=frontDataProvider,
+            unit=unit,
+            **SliceModel.FRONT)
+        self._frontSlice.sigCurrentIndexChanged.connect(self.__sliceChanged)
+        self._frontSlice.setCurrentIndex(height // 2)
+        self._frontPlot.setModel(self._frontSlice)
+        self._frontBrowser.setModel(self._frontSlice)
+
+        self._sideSlice = SliceModel(
+            origin=(oy, oz),
+            scale=(res_y, res_z),
+            range_=(0, width),
+            normalization=(ox, res_x),
+            dataProvider=sideDataProvider,
+            unit=unit,
+            **SliceModel.SIDE)
+        self._sideSlice.sigCurrentIndexChanged.connect(self.__sliceChanged)
+        self._sideSlice.setCurrentIndex(width // 2)
+        self._sidePlot.setModel(self._sideSlice)
+        self._sideBrowser.setModel(self._sideSlice)
+
+        if resetZoom:
+            self._topPlot.resetZoom()
+            self._frontPlot.resetZoom()
+            self._sidePlot.resetZoom()
+
+    def updateSlices(self):
+        """Update plotted data"""
+        self.__update(resetZoom=False)
 
     def getUnit(self):
         """Returns the unit in use
@@ -1288,7 +1371,7 @@ class VolumeView(qt.QMainWindow):
         return self.__scans
 
     def setResolution(self, depth=1., row=1., column=1.):
-        """Set the resolution as meter per pixel.
+        """Set the resolution in units per pixel.
 
         :param float depth: Vertical resolution
         :param float row: Slice row resolution
@@ -1307,7 +1390,7 @@ class VolumeView(qt.QMainWindow):
         return self.__resolution
 
     def setOrigin(self, z=0., y=0., x=0.):
-        """Set the offset from origin in meter of the dataset
+        """Set the offset from origin of the dataset in units
 
         :param float z:
         :param float y:
@@ -1325,7 +1408,7 @@ class VolumeView(qt.QMainWindow):
         """
         return self.__origin
 
-    def __centerPlots(self, cx, cy, cz):
+    def __centerPlots(self, cx, cy, cz):  # TODO move to SlicePlot?
         """Change slice and pan plots to center to given position
 
         :param float cx:
@@ -1349,9 +1432,9 @@ class VolumeView(qt.QMainWindow):
         y = numpy.clip(y, 0, height)
         z = numpy.clip(z, 0, depth)
 
-        self._sideBrowser.setValue(x)
-        self._frontBrowser.setValue(y)
-        self._topBrowser.setValue(z)
+        self._sideSlice.setCurrentIndex(x)
+        self._frontSlice.setCurrentIndex(y)
+        self._topSlice.setCurrentIndex(z)
 
         # change plot limits to center without changing the zoom
         xmin, xmax = self._topPlot.getXAxis().getLimits()
@@ -1381,74 +1464,15 @@ class VolumeView(qt.QMainWindow):
         :param Union[None,numpy.ndarray,h5py.Dataset] data:
             3D volume, dimension convention is: (depth, row, column).
         """
-        self._data = data
-
-        if self._data is None:
-            self._topPlot.remove('image')
-            self._topPlot.setGraphTitle("Axial")
-            self._frontPlot.remove('image')
-            self._frontPlot.setGraphTitle("Front")
-            self._sidePlot.remove('image')
-            self._sidePlot.setGraphTitle("Side")
-            
-            self._topBrowser.setRange(0, 0)
-            self._frontBrowser.setRange(0, 0)
-            self._sideBrowser.setRange(0, 0) 
-
-        else:
-            depth, height, width = numpy.array(self._data.shape) - 1
-            self._topBrowser.setRange(0, depth)
-            self._topBrowser.setValue(depth // 2)
-            self._frontBrowser.setRange(0, height)
-            self._frontBrowser.setValue(height // 2)
-            self._sideBrowser.setRange(0, width)
-            self._sideBrowser.setValue(width // 2)
-
-            self.updateSlices()
-
-            self._topPlot.resetZoom()
-            self._frontPlot.resetZoom()
-            self._sidePlot.resetZoom()
+        self.__data = data
+        self.__update()
 
     def getData(self):
         """Returns the data currently viewed, no copy is made.
 
         :rtype: Union[None,numpy.ndarray,h5py.Dataset]
         """
-        return self._data
-
-    def updateSlices(self, *faces):
-        """Update plotted slices"""
-        if not faces:
-            faces = 'top', 'front', 'side'
-
-        res_z, res_y, res_x = self.getResolution()
-        oz, oy, ox = self.getOrigin()
-        unit = self.getUnit()
-
-        if 'top' in faces:
-            z = self._topBrowser.value()
-            zpos = oz + z * res_z
-            image = self._data[z, :, :]
-            self._topPlot.setGraphTitle("Axial %g%s (%d)" % (zpos, unit, z))
-            self._topPlot.addImage(image, scale=(res_x, res_y), origin=(ox, oy),
-                legend='image', resetzoom=False, copy=False)
-
-        if 'front' in faces:
-            y = self._frontBrowser.value()
-            ypos = oy + y * res_y
-            image = self._data[:, y, :]
-            self._frontPlot.setGraphTitle("Front %g%s (%d)" % (ypos, unit, y))
-            self._frontPlot.addImage(image, scale=(res_x, res_z), origin=(ox, oz),
-                legend='image', resetzoom=False, copy=False)
-
-        if 'side' in faces:
-            x = self._sideBrowser.value()
-            xpos = ox + x * res_x
-            image = self._data[:, :, x]
-            self._sidePlot.setGraphTitle("Side %g%s (%d)" % (xpos, unit, x))
-            self._sidePlot.addImage(image, scale=(res_y, res_z), origin=(oy, oz),
-                    legend='image', resetzoom=False, copy=False)
+        return self.__data
  
 
 class H5LoadingThread(threading.Thread):
