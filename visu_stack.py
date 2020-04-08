@@ -1246,37 +1246,26 @@ class VolumeView(qt.QMainWindow):
         roi.getROI('side').addToPlot(self._sidePlot)
         self._roitable.addROI3D(roi)
 
-    def __sliceChanged(self, value=0):
+    def __sliceChanged(self, face, value):
         """Handle slice change
 
+        :param str face:
         :param int value:
         """
+        assert face in ('top', 'front', 'side')
         self.__handleMarker = False
 
         model = self.sender()
-
-        oz, oy, ox = self.getOrigin()
-        res_z, res_y, res_x = self.getResolution()
         position = model.getSlicePosition()
-        if model is self._topSlice:
-            face = 'top'
-        elif model is self._frontSlice:
-            face = 'front'
-        elif model is self._sideSlice:
-            face = 'side'
-        else:
-            raise RuntimeError('Unhandled signal sender')
-
         for markers in (self._topPlotMarkers, self._frontPlotMarkers, self._sidePlotMarkers):
             for marker in markers:
                 if marker.getLegend() == face + '-marker':
                     marker.setPosition(position, position)
 
-        x = self._sideSlice.getCurrentIndex()
-        y = self._frontSlice.getCurrentIndex()
-        z = self._topSlice.getCurrentIndex()
         self._roitable.setCurrentSlicePosition(
-            ox + res_x * x, oy + res_y * y, oz + res_z * z)
+            self._sideSlice.getSlicePosition(),
+            self._frontSlice.getSlicePosition(),
+            self._topSlice.getSlicePosition())
 
         self.__handleMarker = True
 
@@ -1316,7 +1305,8 @@ class VolumeView(qt.QMainWindow):
             dataProvider=topDataProvider,
             unit=unit,
             **SliceModel.AXIAL)
-        self._topSlice.sigCurrentIndexChanged.connect(self.__sliceChanged)
+        self._topSlice.sigCurrentIndexChanged.connect(
+            functools.partial(self.__sliceChanged, 'top'))
         self._topSlice.setCurrentIndex(depth // 2)
         self._topPlot.setModel(self._topSlice)
         self._topBrowser.setModel(self._topSlice)
@@ -1329,7 +1319,8 @@ class VolumeView(qt.QMainWindow):
             dataProvider=frontDataProvider,
             unit=unit,
             **SliceModel.FRONT)
-        self._frontSlice.sigCurrentIndexChanged.connect(self.__sliceChanged)
+        self._frontSlice.sigCurrentIndexChanged.connect(
+            functools.partial(self.__sliceChanged, 'front'))
         self._frontSlice.setCurrentIndex(height // 2)
         self._frontPlot.setModel(self._frontSlice)
         self._frontBrowser.setModel(self._frontSlice)
@@ -1342,7 +1333,8 @@ class VolumeView(qt.QMainWindow):
             dataProvider=sideDataProvider,
             unit=unit,
             **SliceModel.SIDE)
-        self._sideSlice.sigCurrentIndexChanged.connect(self.__sliceChanged)
+        self._sideSlice.sigCurrentIndexChanged.connect(
+            functools.partial(self.__sliceChanged, 'side'))
         self._sideSlice.setCurrentIndex(width // 2)
         self._sidePlot.setModel(self._sideSlice)
         self._sideBrowser.setModel(self._sideSlice)
