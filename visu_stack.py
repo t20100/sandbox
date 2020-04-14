@@ -66,6 +66,7 @@ import logging
 import os
 import sys
 import threading
+import typing
 import time
 import weakref
 
@@ -163,6 +164,10 @@ class Scan:
 # ROI
 
 class DraggableRectangle(qt.QObject):
+    """A rectangular ROI that can be dragged with an anchor at its center.
+
+    :param QWidget parent:
+    """
 
     changed = qt.Signal()
     """Signal emitted each time the item is changed"""
@@ -202,11 +207,13 @@ class DraggableRectangle(qt.QObject):
             if plot is not None:
                 plot.removeItem(item)
 
-    def _setVisible(self, visible):
+    def _setVisible(self, visible: bool) -> None:
+        """Set the visibility of contained items"""
         for item in self._items:
             item.setVisible(visible)
 
-    def _legend(self, suffix):
+    def _legend(self, suffix: str) -> str:
+        """Generates legends to use internally"""
         return '_'.join((self.__class__.__name__, str(id(self)), suffix))
         
     def addToPlot(self, plot):
@@ -215,50 +222,66 @@ class DraggableRectangle(qt.QObject):
         for item in self._items:
             plot.addItem(item)
 
-    def setLineWidth(self, width):
+    def setLineWidth(self, width: float) -> None:
+        """Set the width of the line"""
         for item in self._items:
             if isinstance(item, items.LineMixIn):
                 item.setLineWidth(width)
 
-    def setLineStyle(self, linestyle):
+    def setLineStyle(self, linestyle: str) -> None:
+        """Set the style of the line of the ROI"""
         for item in self._items:
             if isinstance(item, items.LineMixIn):
                 item.setLineStyle(linestyle)
 
-    def setColor(self, color):
+    def setColor(self, color) -> None:
+        """Set the color of the marker
+
+        :param color: The color description
+        """
         for item in self._items:
             if isinstance(item, items.ColorMixIn):
                 item.setColor(color)
 
-    def __markerChanged(self, event):
+    def __markerChanged(self, event) -> None:
+        """Handle marker changed events"""
         if event == items.ItemChangedType.POSITION:
             self._update()
             marker = self.sender()
             if marker.isDragged():
                 self.dragged.emit(*marker.getPosition())
 
-    def _update(self):
+    def _update(self) -> None:
+        """Update the displayed shape and send event"""
         square = numpy.array(((-0.5, -0.5), (-0.5, 0.5), (0.5, 0.5), (0.5, -0.5)))
         self._rectangle.setPoints(self.getCenter() + self.getSize() * square)
         self.changed.emit()
 
-    def setCenter(self, x, y):
+    def setCenter(self, x: float, y: float) -> None:
+        """Set the center of the ROI"""
         self._centerMarker.setPosition(x, y)
 
-    def getCenter(self):
-        return numpy.array(self._centerMarker.getPosition())
+    def getCenter(self) -> typing.Tuple[float]:
+        """Returns the center (cx, cy) of the ROI"""
+        return self._centerMarker.getPosition()
     
-    def setSize(self, width, height):
+    def setSize(self, width: float, height: float) -> None:
+        """Set the size of the ROI."""
         size = width, height
         if not numpy.array_equal(size, self._size):
             self._size = size
             self._update()
 
-    def getSize(self):
+    def getSize(self) -> typing.Tuple[float]:
+        """Returns the size (width, height) of the ROI."""
         return self._size
 
 
 class ExtendableRectangle(DraggableRectangle):
+    """ROI that can be moved and extended vertically by anchors.
+
+    :param QWidget parent:
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -269,7 +292,7 @@ class ExtendableRectangle(DraggableRectangle):
         self._bottomMarker._setDraggable(True)
         self._bottomMarker.setSymbol('s')
         self._bottomMarker._setConstraint(
-            WeakMethodProxy(self._bottom_constraint))
+            WeakMethodProxy(self._bottomConstraint))
         self._bottomMarker.sigItemChanged.connect(self.__markerChanged)
         self._items.append(self._bottomMarker)
 
@@ -279,32 +302,27 @@ class ExtendableRectangle(DraggableRectangle):
         self._topMarker._setDraggable(True)
         self._topMarker.setSymbol('s')
         self._topMarker._setConstraint(
-            WeakMethodProxy(self._top_constraint))
+            WeakMethodProxy(self._topConstraint))
         self._topMarker.sigItemChanged.connect(self.__markerChanged)
         self._items.append(self._topMarker)
 
-        self.__handle_marker_changed = True
+        self.__handleMarkerChanged = True
 
         self.setColor('pink')
 
-    def _top_constraint(self, x, y):
+    def _topConstraint(self, x: float, y: float) -> None:
+        """Constraint applied on the top anchor"""
         cx, cy = self.getCenter()
         return cx, max(y, cy)
 
-    def _top_marker_changed(self, event):
-        if event == items.ItemChangedType.POSITION:
-            width, _ = self.getSize()
-            _, cy = self.getCenter()
-            y = self._topMarker.getYPosition()
-            newHeight = abs(cy - y) * 2.
-            self.setSize(width, newHeight)
-
-    def _bottom_constraint(self, x, y):
+    def _bottomConstraint(self, x: float, y: float) -> None:
+        """Constraint applied on the bottom anchor"""
         cx, cy = self.getCenter()
         return cx, min(y, cy)
 
-    def __markerChanged(self, event):
-        if event == items.ItemChangedType.POSITION and self.__handle_marker_changed:
+    def __markerChanged(self, event) -> None:
+        """Handle changes in markers"""
+        if event == items.ItemChangedType.POSITION and self.__handleMarkerChanged:
             width, _ = self.getSize()
             cx, _ = self.getCenter()
             ybottom = self._bottomMarker.getYPosition()
@@ -316,14 +334,15 @@ class ExtendableRectangle(DraggableRectangle):
             marker = self.sender()
             self.dragged.emit(*marker.getPosition())
 
-    def _update(self):
-        self.__handle_marker_changed = False
+    def _update(self) -> None:
+        """Update the displayed shape and send event"""
+        self.__handleMarkerChanged = False
         cx, cy = self.getCenter()
         _, height = self.getSize()
         self._topMarker.setPosition(cx, cy + height / 2.)
         self._bottomMarker.setPosition(cx, cy - height / 2.)
         super()._update()
-        self.__handle_marker_changed = True
+        self.__handleMarkerChanged = True
 
 
 class ROI3D(qt.QObject):
