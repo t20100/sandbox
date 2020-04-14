@@ -165,6 +165,13 @@ class Scan:
 class DraggableRectangle(qt.QObject):
 
     changed = qt.Signal()
+    """Signal emitted each time the item is changed"""
+
+    dragged = qt.Signal(float, float)
+    """Signal emitted when the item is changed by a direct user interaction.
+
+    It provides the x and y data coordinates of the currently dragged position.
+    """
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -177,55 +184,58 @@ class DraggableRectangle(qt.QObject):
         self._rectangle.setName(self._legend('rectangle'))
         self._rectangle.setOverlay(True)
         self._rectangle.setLineWidth(2)
+        self._items = [self._rectangle]
 
-        self._center_marker = items.Marker()
-        self._center_marker.setPosition(0, 0)
-        self._center_marker.setName(self._legend('center_marker'))
-        self._center_marker._setDraggable(True)
-        self._center_marker.setSymbol('o')
-        self._center_marker.sigItemChanged.connect(self.__marker_changed)
-
-        self._plot_items = [self._rectangle, self._center_marker]
+        self._centerMarker = items.Marker()
+        self._centerMarker.setPosition(0, 0)
+        self._centerMarker.setName(self._legend('center_marker'))
+        self._centerMarker._setDraggable(True)
+        self._centerMarker.setSymbol('o')
+        self._centerMarker.sigItemChanged.connect(self.__markerChanged)
+        self._items.append(self._centerMarker)
 
         self.setColor('pink')
 
     def __del__(self):
-        for item in self._plot_items:
+        for item in self._items:
             plot = item.getPlot()
             if plot is not None:
                 plot.removeItem(item)
 
     def _setVisible(self, visible):
-        for item in self._plot_items:
+        for item in self._items:
             item.setVisible(visible)
 
     def _legend(self, suffix):
         return '_'.join((self.__class__.__name__, str(id(self)), suffix))
         
     def addToPlot(self, plot):
-        for item in self._plot_items:
+        for item in self._items:
             assert item.getPlot() is None
-        for item in self._plot_items:
+        for item in self._items:
             plot.addItem(item)
 
     def setLineWidth(self, width):
-        for item in self._plot_items:
+        for item in self._items:
             if isinstance(item, items.LineMixIn):
                 item.setLineWidth(width)
 
     def setLineStyle(self, linestyle):
-        for item in self._plot_items:
+        for item in self._items:
             if isinstance(item, items.LineMixIn):
                 item.setLineStyle(linestyle)
 
     def setColor(self, color):
-        for item in self._plot_items:
+        for item in self._items:
             if isinstance(item, items.ColorMixIn):
                 item.setColor(color)
 
-    def __marker_changed(self, event):
+    def __markerChanged(self, event):
         if event == items.ItemChangedType.POSITION:
             self._update()
+            marker = self.sender()
+            if marker.isDragged():
+                self.dragged.emit(*marker.getPosition())
 
     def _update(self):
         square = numpy.array(((-0.5, -0.5), (-0.5, 0.5), (0.5, 0.5), (0.5, -0.5)))
@@ -233,10 +243,10 @@ class DraggableRectangle(qt.QObject):
         self.changed.emit()
 
     def setCenter(self, x, y):
-        self._center_marker.setPosition(x, y)
+        self._centerMarker.setPosition(x, y)
 
     def getCenter(self):
-        return numpy.array(self._center_marker.getPosition())
+        return numpy.array(self._centerMarker.getPosition())
     
     def setSize(self, width, height):
         size = width, height
@@ -253,25 +263,25 @@ class ExtendableRectangle(DraggableRectangle):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self._bottom_marker = items.Marker()
-        self._bottom_marker.setPosition(0, 0)
-        self._bottom_marker.setName(self._legend('bottom_marker'))
-        self._bottom_marker._setDraggable(True)
-        self._bottom_marker.setSymbol('s')
-        self._bottom_marker._setConstraint(
+        self._bottomMarker = items.Marker()
+        self._bottomMarker.setPosition(0, 0)
+        self._bottomMarker.setName(self._legend('bottom_marker'))
+        self._bottomMarker._setDraggable(True)
+        self._bottomMarker.setSymbol('s')
+        self._bottomMarker._setConstraint(
             WeakMethodProxy(self._bottom_constraint))
-        self._bottom_marker.sigItemChanged.connect(self._marker_changed)
-        self._plot_items.append(self._bottom_marker)
+        self._bottomMarker.sigItemChanged.connect(self.__markerChanged)
+        self._items.append(self._bottomMarker)
 
-        self._top_marker = items.Marker()
-        self._top_marker.setPosition(0, 0)
-        self._top_marker.setName(self._legend('top_marker'))
-        self._top_marker._setDraggable(True)
-        self._top_marker.setSymbol('s')
-        self._top_marker._setConstraint(
+        self._topMarker = items.Marker()
+        self._topMarker.setPosition(0, 0)
+        self._topMarker.setName(self._legend('top_marker'))
+        self._topMarker._setDraggable(True)
+        self._topMarker.setSymbol('s')
+        self._topMarker._setConstraint(
             WeakMethodProxy(self._top_constraint))
-        self._top_marker.sigItemChanged.connect(self._marker_changed)
-        self._plot_items.append(self._top_marker)
+        self._topMarker.sigItemChanged.connect(self.__markerChanged)
+        self._items.append(self._topMarker)
 
         self.__handle_marker_changed = True
 
@@ -285,7 +295,7 @@ class ExtendableRectangle(DraggableRectangle):
         if event == items.ItemChangedType.POSITION:
             width, _ = self.getSize()
             _, cy = self.getCenter()
-            y = self._top_marker.getYPosition()
+            y = self._topMarker.getYPosition()
             newHeight = abs(cy - y) * 2.
             self.setSize(width, newHeight)
 
@@ -293,23 +303,25 @@ class ExtendableRectangle(DraggableRectangle):
         cx, cy = self.getCenter()
         return cx, min(y, cy)
 
-    def _marker_changed(self, event):
+    def __markerChanged(self, event):
         if event == items.ItemChangedType.POSITION and self.__handle_marker_changed:
             width, _ = self.getSize()
             cx, _ = self.getCenter()
-            ybottom = self._bottom_marker.getYPosition()
-            ytop = self._top_marker.getYPosition()
+            ybottom = self._bottomMarker.getYPosition()
+            ytop = self._topMarker.getYPosition()
             height = abs(ytop - ybottom)
             cy = 0.5 * (ybottom + ytop)
             self.setCenter(cx, cy)
             self.setSize(width, height)
+            marker = self.sender()
+            self.dragged.emit(*marker.getPosition())
 
     def _update(self):
         self.__handle_marker_changed = False
         cx, cy = self.getCenter()
         _, height = self.getSize()
-        self._top_marker.setPosition(cx, cy + height / 2.)
-        self._bottom_marker.setPosition(cx, cy - height / 2.)
+        self._topMarker.setPosition(cx, cy + height / 2.)
+        self._bottomMarker.setPosition(cx, cy - height / 2.)
         super()._update()
         self.__handle_marker_changed = True
 
@@ -319,10 +331,11 @@ class ROI3D(qt.QObject):
     SCAN_CHANGED = 'scanChanged'
     """Event emitted when the scan info has changed"""
 
-    NAME_CHANGED = 'nameChanged'
-    """Event emitted when the name has changed"""
-
     sigItemChanged = qt.Signal(object)
+    """Signal emitted when the ROI has changed"""
+
+    sigMarkerDragged = qt.Signal(float)
+    """Signal emitted when a marker was dragged"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -342,9 +355,11 @@ class ROI3D(qt.QObject):
 
         self.__rois['front'] = ExtendableRectangle()
         self.__rois['front'].changed.connect(self.__frontChanged)
+        self.__rois['front'].dragged.connect(self.__markerDragged)
 
         self.__rois['side'] = ExtendableRectangle()
         self.__rois['side'].changed.connect(self.__sideChanged)
+        self.__rois['side'].dragged.connect(self.__markerDragged)
 
         self.__update()
         self.setScan(Scan())
@@ -356,7 +371,7 @@ class ROI3D(qt.QObject):
         name = str(name)
         if name != self.__name:
             self.__name = name
-            self.sigItemChanged.emit(self.NAME_CHANGED)
+            self.sigItemChanged.emit(items.ItemChangedType.NAME)
 
     def isVisible(self):
         return self.__visible
@@ -426,6 +441,9 @@ class ROI3D(qt.QObject):
         cx = self.getCenter()[0]
         self.setHeight(self.__rois['side'].getSize()[1])
         self.setCenter(cx, cy, cz)
+
+    def __markerDragged(self, x, y):
+        self.sigMarkerDragged.emit(y)
 
     def __update(self):
         cx, cy, cz = self.getCenter()
@@ -598,7 +616,7 @@ class ROI3DTableWidget(qt.QTableWidget):
         if event == items.ItemChangedType.POSITION:
             self._updateDescription(roi)
 
-        elif event == ROI3D.NAME_CHANGED:
+        elif event == items.ItemChangedType.NAME:
             row = self.getROI3D().index(roi)
             item = self.item(row, self.NAME_COL)
             item.setText(roi.getName())
@@ -907,7 +925,7 @@ class SlicePlot(plot.PlotWidget):
 
         # Only call base class implementation when key is not handled.
         # See QWidget.keyPressEvent for details.
-        super(Plot, self).keyPressEvent(event)
+        super(SlicePlot, self).keyPressEvent(event)
 
     def setModel(self, model):
         """Set the model to associate to this slider
@@ -1069,7 +1087,7 @@ class VolumeView(qt.QMainWindow):
         for plot in (self._topPlot, self._frontPlot, self._sidePlot):
             plot.sigPlotSignal.connect(self.__plotChanged)
 
-        for marker in __markers:
+        for marker in self.__markers:
             dim = ('axial', 'front', 'side').index(marker.getText())
             marker._setConstraint(functools.partial(self.__lineMarkerConstraint, dim))
             marker._setDraggable(True)
@@ -1259,6 +1277,8 @@ class VolumeView(qt.QMainWindow):
         roi.getROI('front').addToPlot(self._frontPlot)
         roi.getROI('side').addToPlot(self._sidePlot)
         self._roitable.addROI3D(roi)
+
+        roi.sigMarkerDragged.connect(self._topSlice.setSlicePosition)
 
     def __sliceChanged(self, face, value):
         """Handle slice change
