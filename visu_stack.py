@@ -36,11 +36,10 @@
 # - 2nd widget for huge 2D data images + photo layer
 
 # From feedbacks
-# - Add ROI by drawning and selecting the right detector
+# - Add ROI by drawning and selecting the right detector: WIP
 # - Horizontal ROI should be circular
 # - Check usage of float16
 # - Change up/down of the volume (??)
-# - When changing the height of the ROI, move the horizontal slice at the same time
 # - Add some constraints horizontal/vertical on panning (with modifier keys)
 # - Modifier key to change diameter of circle remaining centered
 # - colormap: add per-slice autoscale
@@ -248,7 +247,7 @@ class DraggableRectangle(qt.QObject):
         if event == items.ItemChangedType.POSITION:
             self._update()
             marker = self.sender()
-            if marker.isDragged():
+            if marker.isBeingDragged():
                 self.dragged.emit(*marker.getPosition())
 
     def _update(self) -> None:
@@ -292,7 +291,7 @@ class ExtendableRectangle(DraggableRectangle):
         self._bottomMarker._setDraggable(True)
         self._bottomMarker.setSymbol('s')
         self._bottomMarker._setConstraint(
-            WeakMethodProxy(self._bottomConstraint))
+            WeakMethodProxy(self.__bottomConstraint))
         self._bottomMarker.sigItemChanged.connect(self.__markerChanged)
         self._items.append(self._bottomMarker)
 
@@ -301,8 +300,7 @@ class ExtendableRectangle(DraggableRectangle):
         self._topMarker.setName(self._legend('top_marker'))
         self._topMarker._setDraggable(True)
         self._topMarker.setSymbol('s')
-        self._topMarker._setConstraint(
-            WeakMethodProxy(self._topConstraint))
+        self._topMarker._setConstraint(WeakMethodProxy(self.__topConstraint))
         self._topMarker.sigItemChanged.connect(self.__markerChanged)
         self._items.append(self._topMarker)
 
@@ -310,12 +308,12 @@ class ExtendableRectangle(DraggableRectangle):
 
         self.setColor('pink')
 
-    def _topConstraint(self, x: float, y: float) -> None:
+    def __topConstraint(self, x: float, y: float) -> None:
         """Constraint applied on the top anchor"""
         cx, cy = self.getCenter()
         return cx, max(y, cy)
 
-    def _bottomConstraint(self, x: float, y: float) -> None:
+    def __bottomConstraint(self, x: float, y: float) -> None:
         """Constraint applied on the bottom anchor"""
         cx, cy = self.getCenter()
         return cx, min(y, cy)
@@ -992,6 +990,13 @@ class SlicePlot(plot.PlotWidget):
         """Same as :meth:`addYMarker` but returns an item"""
         return self._getMarker(self.addYMarker(*args, **kwargs))
 
+    def addShapeItem(self, xdata, ydata, legend=None, **kwargs):
+        """Same as :meth:`addShape` but returns an item"""
+        self.addShape(xdata, ydata, legend, **kwargs)
+        for item in self.getItems():
+            if isinstance(item, items.Shape) and item.getName() == legend:
+                return item
+
     def centerSlice(self, cx, cy):
         """Center a slice to a give position.
 
@@ -1058,6 +1063,7 @@ class VolumeView(qt.QMainWindow):
         self.__data = None
 
         self.__handleMarker = True
+        self.__newROIShape = None
 
         # Shared colormap
         self._colormap = Colormap()
@@ -1070,6 +1076,7 @@ class VolumeView(qt.QMainWindow):
         self._createROIAction.setToolTip('Create a new selection by clicking on a slice')
         self._createROIAction.setCheckable(True)
         self._createROIAction.setChecked(False)
+        self._createROIAction.triggered.connect(self.__createROIActionTriggered)
 
         # Slice model
         self._topSlice, self._frontSlice, self._sideSlice = None, None, None
@@ -1102,6 +1109,10 @@ class VolumeView(qt.QMainWindow):
         self.__markers.extend([
             self._sidePlot.addXMarkerItem(0, legend='front-marker', text='front'),
             self._sidePlot.addYMarkerItem(0, legend='axial-marker', text='axial')])
+
+        # Sync
+        self._topPlot.sigInteractiveModeChanged.connect(
+            self.__topPlotInteractiveModeChanged)
 
         for plot in (self._topPlot, self._frontPlot, self._sidePlot):
             plot.sigPlotSignal.connect(self.__plotChanged)
@@ -1203,12 +1214,10 @@ class VolumeView(qt.QMainWindow):
 
         action = plot_actions.mode.ZoomModeAction(
             parent=self, plot=self._topPlot)
-        action.triggered.connect(self.__zoomMode)
         toolbar.addAction(action)
 
         action = plot_actions.mode.PanModeAction(
             parent=self, plot=self._topPlot)
-        action.triggered.connect(self.__panMode)
         toolbar.addAction(action)
 
         toolbar.addAction(self._createROIAction)
@@ -1223,15 +1232,14 @@ class VolumeView(qt.QMainWindow):
         toolbar.addAction(plot_actions.control.ColormapAction(
             parent=self, plot=self._topPlot))
 
-    def __panMode(self, checked):
-        action = self.sender()
-        self._frontPlot.setInteractiveMode('pan', source=action)
-        self._sidePlot.setInteractiveMode('pan', source=action)
+    def __topPlotInteractiveModeChanged(self, source):
+        """Synchronize interactive mode between plots"""
+        if source is not self._createROIAction:  # Sync create ROI action
+            self._createROIAction.setChecked(False)
 
-    def __zoomMode(self, checked):
-        action = self.sender()
-        self._frontPlot.setInteractiveMode('zoom', source=action)
-        self._sidePlot.setInteractiveMode('zoom', source=action)
+        mode = self._topPlot.getInteractiveMode()
+        for plot in (self._frontPlot, self._sidePlot):
+            plot.setInteractiveMode(source=source, **mode)
 
     def __resetZoom(self, checked):
         self._frontPlot.resetZoom()
@@ -1258,18 +1266,46 @@ class VolumeView(qt.QMainWindow):
         max_ = min_ + self.getResolution()[dim] * max_
         return numpy.clip(x, min_, max_), numpy.clip(y, min_, max_)
 
+    def __createROIActionTriggered(self, checked=False):
+        """Handle create ROI Action"""
+        if checked:
+            self._topPlot.setInteractiveMode(
+                mode='draw',
+                color=(0., 0., 0., 0.),
+                shape='pencil',
+                label='drawroi',
+                zoomOnWheel=True,
+                source=self._createROIAction,
+                width=0)
+
     def __plotChanged(self, event):
         """Handle signal from the plots"""
         if not self._createROIAction.isChecked():
             return
 
-        if event['event'] == 'mouseClicked' and event['button'] == 'left':
+        if event['event'] == 'drawingProgress':
             plot = self.sender()
-            x, y = event['x'], event['y']
-            self.__addROI3DFromClick(plot, x,y)
+            self.__newROIShape = plot.addShapeItem(
+                xdata=event['xdata'],
+                ydata=event['ydata'],
+                legend='new roi contour',
+                shape='polygon',
+                color='red',
+                fill=False,
+                overlay=True)
 
-    def __addROI3DFromClick(self, plot, clicked_x, clicked_y):
+        if event['event'] == 'drawingFinished':
+            plot = self.sender()
+            if self.__newROIShape is not None:
+                plot.removeItem(self.__newROIShape)
+                self.__newROIShape = None
+            self.__addROI3DFromSelection(plot, event['xdata'], event['ydata'])
+
+    def __addROI3DFromSelection(self, plot, x, y):
+        # TODO select right scan
         scan = self._scanComboBox.currentData()
+
+        x, y = numpy.mean(x), numpy.mean(y)  # TODO use shape to select ROI
 
         roi = ROI3D()
         roi.setName('%03d' % self.__roi_index)
@@ -1285,11 +1321,11 @@ class VolumeView(qt.QMainWindow):
         roi.setCurrentSlicePosition(browser_x, browser_y, browser_z)
 
         if plot is self._topPlot:
-            cx, cy, cz = clicked_x, clicked_y, browser_z
+            cx, cy, cz = x, y, browser_z
         elif plot is self._frontPlot:
-            cx, cy, cz = clicked_x, browser_y, clicked_y
+            cx, cy, cz = x, browser_y, y
         elif plot is self._sidePlot:
-            cx, cy, cz = browser_x, clicked_x, clicked_y
+            cx, cy, cz = browser_x, x, y
         roi.setCenter(cx, cy, cz)
 
         roi.getROI('axial').addToPlot(self._topPlot)
