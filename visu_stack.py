@@ -1043,38 +1043,39 @@ class VolumeView(qt.QMainWindow):
         self._sideBrowser = SliceBrowser(self, self._sideSlice)
 
         # Plot widgets
+        self.__markers = []
+
         self._topPlot = SlicePlot(
             parent=self, backend=backend, model=self._topSlice)
         self._topPlot.setDefaultColormap(self._colormap)
-        self._topPlotMarkers = (
+        self.__markers.extend([
             self._topPlot.addXMarkerItem(0, legend='side-marker', text='side'),
-            self._topPlot.addYMarkerItem(0, legend='front-marker', text='front'))
+            self._topPlot.addYMarkerItem(0, legend='front-marker', text='front')])
 
         self._frontPlot = SlicePlot(
             parent=self, backend=backend, model=self._frontSlice)
         self._frontPlot.setDefaultColormap(self._colormap)
-        self._frontPlotMarkers = (
+        self.__markers.extend([
             self._frontPlot.addXMarkerItem(0, legend='side-marker', text='side'),
-            self._frontPlot.addYMarkerItem(0, legend='axial-marker', text='axial'))
+            self._frontPlot.addYMarkerItem(0, legend='axial-marker', text='axial')])
 
         self._sidePlot = SlicePlot(
             parent=self, backend=backend, model=self._sideSlice)
         self._sidePlot.setDefaultColormap(self._colormap)
-        self._sidePlotMarkers = (
+        self.__markers.extend([
             self._sidePlot.addXMarkerItem(0, legend='front-marker', text='front'),
-            self._sidePlot.addYMarkerItem(0, legend='axial-marker', text='axial'))
+            self._sidePlot.addYMarkerItem(0, legend='axial-marker', text='axial')])
 
         for plot in (self._topPlot, self._frontPlot, self._sidePlot):
             plot.sigPlotSignal.connect(self.__plotChanged)
 
-        for markers in (self._topPlotMarkers, self._frontPlotMarkers, self._sidePlotMarkers):
-            for marker in markers:
-                dim = ('axial', 'front', 'side').index(marker.getText())
-                marker._setConstraint(functools.partial(self.__lineMarkerConstraint, dim))
-                marker._setDraggable(True)
-                marker.setColor('pink')
-                marker.setLineStyle('--')
-                marker.sigItemChanged.connect(self.__lineMarkerChanged)
+        for marker in __markers:
+            dim = ('axial', 'front', 'side').index(marker.getText())
+            marker._setConstraint(functools.partial(self.__lineMarkerConstraint, dim))
+            marker._setDraggable(True)
+            marker.setColor('pink')
+            marker.setLineStyle('--')
+            marker.sigItemChanged.connect(self.__lineMarkerChanged)
 
         self.__update()  # Update models
 
@@ -1270,10 +1271,9 @@ class VolumeView(qt.QMainWindow):
 
         model = self.sender()
         position = model.getSlicePosition()
-        for markers in (self._topPlotMarkers, self._frontPlotMarkers, self._sidePlotMarkers):
-            for marker in markers:
-                if marker.getLegend() == face + '-marker':
-                    marker.setPosition(position, position)
+        for marker in self.__markers:
+            if marker.getLegend() == face + '-marker':
+                marker.setPosition(position, position)
 
         self._roitable.setCurrentSlicePosition(
             self._sideSlice.getSlicePosition(),
