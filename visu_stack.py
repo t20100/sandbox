@@ -955,6 +955,19 @@ class SlicePlot(plot.PlotWidget):
         """Same as :meth:`addYMarker` but returns an item"""
         return self._getMarker(self.addYMarker(*args, **kwargs))
 
+    def centerSlice(self, cx, cy):
+        """Center a slice to a give position.
+
+        :param float cx:
+        :param float cy:
+        """
+        xmin, xmax = self.getXAxis().getLimits()
+        ymin, ymax = self.getYAxis().getLimits()
+        half_width = 0.5 * abs(xmax - xmin)
+        half_height = 0.5 * abs(ymax - ymin)
+        self.getXAxis().setLimits(cx - half_width, cx + half_width)
+        self.getYAxis().setLimits(cy - half_height, cy + half_height)
+
 
 class SliceBrowser(HorizontalSliderWithBrowser):
     """Frame browser and slider associated to a slice model
@@ -1407,48 +1420,14 @@ class VolumeView(qt.QMainWindow):
         :param float cy:
         :param float cz:
         """
-        res_z, res_y, res_x = self.getResolution()
-        oz, oy, ox = self.getOrigin()
+        self._sideSlice.setSlicePosition(cx)
+        self._sidePlot.centerSlice(cy, cz)
 
-        x = int((cx - ox) / res_x)
-        y = int((cy - oy) / res_y)
-        z = int((cz - oz) / res_z)
+        self._frontSlice.setSlicePosition(cy)
+        self._frontPlot.centerSlice(cx, cz)
 
-        data = self.getData()
-        if data is None:
-            depth, height, width = 0, 0, 0
-        else:
-            depth, height, width = numpy.array(data.shape) - 1
-
-        x = numpy.clip(x, 0, width)
-        y = numpy.clip(y, 0, height)
-        z = numpy.clip(z, 0, depth)
-
-        self._sideSlice.setCurrentIndex(x)
-        self._frontSlice.setCurrentIndex(y)
-        self._topSlice.setCurrentIndex(z)
-
-        # change plot limits to center without changing the zoom
-        xmin, xmax = self._topPlot.getXAxis().getLimits()
-        ymin, ymax = self._topPlot.getYAxis().getLimits()
-        half_width = 0.5 * abs(xmax - xmin)
-        half_height = 0.5 * abs(ymax - ymin)
-        self._topPlot.getXAxis().setLimits(cx - half_width, cx + half_width)
-        self._topPlot.getYAxis().setLimits(cy - half_height, cy + half_height)
-
-        xmin, xmax = self._frontPlot.getXAxis().getLimits()
-        ymin, ymax = self._frontPlot.getYAxis().getLimits()
-        half_width = 0.5 * abs(xmax - xmin)
-        half_height = 0.5 * abs(ymax - ymin)
-        self._frontPlot.getXAxis().setLimits(cx - half_width, cx + half_width)
-        self._frontPlot.getYAxis().setLimits(cz - half_height, cz + half_height)
-
-        xmin, xmax = self._sidePlot.getXAxis().getLimits()
-        ymin, ymax = self._sidePlot.getYAxis().getLimits()
-        half_width = 0.5 * abs(xmax - xmin)
-        half_height = 0.5 * abs(ymax - ymin)
-        self._sidePlot.getXAxis().setLimits(cy - half_width, cy + half_width)
-        self._sidePlot.getYAxis().setLimits(cz - half_height, cz + half_height)
+        self._topSlice.setSlicePosition(cz)
+        self._topPlot.centerSlice(cx, cy)
 
     def setData(self, data):
         """The data to view, no copy is made.
@@ -1492,6 +1471,7 @@ class H5LoadingThread(threading.Thread):
                 self._progress(self.loaded_index, length)
                 # Give a chance for main thread to run as h5py do not release the GIL
                 time.sleep(0.01)
+
 
 if __name__ == "__main__":
     import sys
@@ -1547,4 +1527,3 @@ if __name__ == "__main__":
     window.setData(data_view)
 
     sys.exit(app.exec_())
-
