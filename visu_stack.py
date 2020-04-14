@@ -337,8 +337,8 @@ class ROI3D(qt.QObject):
         self.__center = 0., 0., 0.
 
         self.__rois = {}
-        self.__rois['top'] = DraggableRectangle()
-        self.__rois['top'].changed.connect(self.__topChanged)
+        self.__rois['axial'] = DraggableRectangle()
+        self.__rois['axial'].changed.connect(self.__topChanged)
 
         self.__rois['front'] = ExtendableRectangle()
         self.__rois['front'].changed.connect(self.__frontChanged)
@@ -403,14 +403,14 @@ class ROI3D(qt.QObject):
         self.__rois['front'].setColor(in_color if oy <= y <= fy else out_color)
         self.__rois['front'].setLineStyle(in_style if oy <= y <= fy else out_style)
 
-        self.__rois['top'].setColor(in_color if oz <= z <= fz else out_color)
-        self.__rois['top'].setLineStyle(in_style if oz <= z <= fz else out_style)
+        self.__rois['axial'].setColor(in_color if oz <= z <= fz else out_color)
+        self.__rois['axial'].setLineStyle(in_style if oz <= z <= fz else out_style)
 
     def getCurrentSlicePosition(self):
         return self.__currentSlices
 
     def __topChanged(self):
-        cx, cy = self.__rois['top'].getCenter()
+        cx, cy = self.__rois['axial'].getCenter()
         cz = self.getCenter()[2]
         self.setCenter(cx, cy, cz)
 
@@ -430,8 +430,8 @@ class ROI3D(qt.QObject):
     def __update(self):
         cx, cy, cz = self.getCenter()
 
-        self.__rois['top'].setSize(self.getWidth(), self.getWidth())
-        self.__rois['top'].setCenter(cx, cy)
+        self.__rois['axial'].setSize(self.getWidth(), self.getWidth())
+        self.__rois['axial'].setCenter(cx, cy)
         self.__rois['front'].setSize(self.getWidth(), self.getHeight())
         self.__rois['front'].setCenter(cx, cz)
         self.__rois['side'].setSize(self.getWidth(), self.getHeight())
@@ -1055,21 +1055,21 @@ class VolumeView(qt.QMainWindow):
         self._frontPlot.setDefaultColormap(self._colormap)
         self._frontPlotMarkers = (
             self._frontPlot.addXMarkerItem(0, legend='side-marker', text='side'),
-            self._frontPlot.addYMarkerItem(0, legend='top-marker', text='top'))
+            self._frontPlot.addYMarkerItem(0, legend='axial-marker', text='axial'))
 
         self._sidePlot = SlicePlot(
             parent=self, backend=backend, model=self._sideSlice)
         self._sidePlot.setDefaultColormap(self._colormap)
         self._sidePlotMarkers = (
             self._sidePlot.addXMarkerItem(0, legend='front-marker', text='front'),
-            self._sidePlot.addYMarkerItem(0, legend='top-marker', text='top'))
+            self._sidePlot.addYMarkerItem(0, legend='axial-marker', text='axial'))
 
         for plot in (self._topPlot, self._frontPlot, self._sidePlot):
             plot.sigPlotSignal.connect(self.__plotChanged)
 
         for markers in (self._topPlotMarkers, self._frontPlotMarkers, self._sidePlotMarkers):
             for marker in markers:
-                dim = ('top', 'front', 'side').index(marker.getText())
+                dim = ('axial', 'front', 'side').index(marker.getText())
                 marker._setConstraint(functools.partial(self.__lineMarkerConstraint, dim))
                 marker._setDraggable(True)
                 marker.setColor('pink')
@@ -1210,7 +1210,7 @@ class VolumeView(qt.QMainWindow):
                 self._sideSlice.setSlicePosition(position)
             elif face == 'front':
                 self._frontSlice.setSlicePosition(position)
-            elif face == 'top':
+            elif face == 'axial':
                 self._topSlice.setSlicePosition(position)
 
     def __lineMarkerConstraint(self, dim, x, y):
@@ -1254,7 +1254,7 @@ class VolumeView(qt.QMainWindow):
             cx, cy, cz = browser_x, clicked_x, clicked_y
         roi.setCenter(cx, cy, cz)
 
-        roi.getROI('top').addToPlot(self._topPlot)
+        roi.getROI('axial').addToPlot(self._topPlot)
         roi.getROI('front').addToPlot(self._frontPlot)
         roi.getROI('side').addToPlot(self._sidePlot)
         self._roitable.addROI3D(roi)
@@ -1265,7 +1265,7 @@ class VolumeView(qt.QMainWindow):
         :param str face:
         :param int value:
         """
-        assert face in ('top', 'front', 'side')
+        assert face in ('axial', 'front', 'side')
         self.__handleMarker = False
 
         model = self.sender()
@@ -1319,7 +1319,7 @@ class VolumeView(qt.QMainWindow):
             unit=unit,
             **SliceModel.AXIAL)
         self._topSlice.sigCurrentIndexChanged.connect(
-            functools.partial(self.__sliceChanged, 'top'))
+            functools.partial(self.__sliceChanged, 'axial'))
         self._topSlice.setCurrentIndex(depth // 2)
         self._topPlot.setModel(self._topSlice)
         self._topBrowser.setModel(self._topSlice)
@@ -1413,7 +1413,7 @@ class VolumeView(qt.QMainWindow):
         """
         return self.__origin
 
-    def __centerPlots(self, cx, cy, cz):  # TODO move to SlicePlot?
+    def __centerPlots(self, cx, cy, cz):
         """Change slice and pan plots to center to given position
 
         :param float cx:
