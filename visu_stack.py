@@ -37,10 +37,9 @@
 # - 2nd widget for huge 2D data images + photo layer
 
 # From feedbacks
-# - Add select the right detector when drawing a ROI
+# - Select the right detector when drawing a ROI
 # - Check usage of float16
 # - Change up/down of the volume (??)
-# - Add some constraints horizontal/vertical on panning (with modifier keys)
 # - Modifier key to change diameter of circle remaining centered
 # - colormap: add per-slice autoscale
 # - Option to have one slice as full screen
@@ -186,6 +185,8 @@ class BaseDraggableROI(qt.QObject):
         self._centerMarker.setPosition(0, 0)
         self._centerMarker.setName(self._legend('center_marker'))
         self._centerMarker._setDraggable(True)
+        self._centerMarker._setConstraint(
+            WeakMethodProxy(self.__centerConstraint))
         self._centerMarker.setSymbol('o')
         self._centerMarker.sigItemChanged.connect(self.__markerChanged)
         self._items = [self._centerMarker]
@@ -233,6 +234,18 @@ class BaseDraggableROI(qt.QObject):
         for item in self._items:
             if isinstance(item, items.ColorMixIn):
                 item.setColor(color)
+
+    def __centerConstraint(self, x: float, y: float) -> None:
+        """Constraint center anchor depending on modifier keys"""
+        application = qt.QGuiApplication.instance()
+        modifiers = application.keyboardModifiers()
+        if modifiers != qt.Qt.NoModifier:
+            cx, cy = self.getCenter()
+            if modifiers & qt.Qt.ShiftModifier:
+                x = cx  # Vertical constraint
+            elif modifiers & qt.Qt.ControlModifier:
+                y = cy  # Horizontal constraint
+        return x, y
 
     def __markerChanged(self, event) -> None:
         """Handle marker changed events"""
