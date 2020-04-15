@@ -267,6 +267,7 @@ class CircularROI(BaseDraggableROI):
         super().__init__(parent)
 
         self.__radius = 0.
+        self.__handleMarkerChanged = True
 
         self._circle = items.Shape('polygon')
         self._circle.setName(self._legend('rectangle'))
@@ -274,14 +275,42 @@ class CircularROI(BaseDraggableROI):
         self._circle.setLineWidth(2)
         self._items.append(self._circle)
 
+        self._leftMarker = items.Marker()
+        self._leftMarker.setPosition(0, 0)
+        self._leftMarker.setName(self._legend('left_marker'))
+        self._leftMarker._setDraggable(True)
+        self._leftMarker.setSymbol('s')
+        self._leftMarker._setConstraint(
+            WeakMethodProxy(self.__leftConstraint))
+        self._leftMarker.sigItemChanged.connect(self.__markerChanged)
+        self._items.append(self._leftMarker)
+
         self.setColor('pink')
+
+    def __leftConstraint(self, x: float, y: float) -> None:
+        """Constraint applied on the left anchor"""
+        cx, cy = self.getCenter()
+        return max(x, cx), cy
+
+    def __markerChanged(self, event) -> None:
+        """Handle changes in markers"""
+        if event == items.ItemChangedType.POSITION and self.__handleMarkerChanged:
+            self.setRadius(
+                abs(self._leftMarker.getXPosition() - self.getCenter()[0]))
+            marker = self.sender()
+            self.dragged.emit(*marker.getPosition())
 
     def _update(self) -> None:
         """Update the displayed shape and send event"""
+        self.__handleMarkerChanged = False
+        self._leftMarker.setPosition(
+            self.getCenter()[0] + self.getRadius(),
+            self._leftMarker.getYPosition())
         coords = numpy.linspace(0, 2*numpy.pi, self._CIRCLE_NB_POINTS)
         points = numpy.transpose((numpy.cos(coords), numpy.sin(coords)))
         self._circle.setPoints(self.getCenter() + self.getRadius() * points)
         super()._update()
+        self.__handleMarkerChanged = True
 
     def setRadius(self, radius: float) -> None:
         """Set the radius of the ROI"""
@@ -499,6 +528,7 @@ class ROI3D(qt.QObject):
     def __topChanged(self):
         cx, cy = self.__rois['axial'].getCenter()
         cz = self.getCenter()[2]
+        self.setWidth(2 * self.__rois['axial'].getRadius())
         self.setCenter(cx, cy, cz)
 
     def __frontChanged(self):
