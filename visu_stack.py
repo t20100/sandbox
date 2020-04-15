@@ -26,6 +26,7 @@
 # TODOs
 # - Add some constraint on the 3D ROI to represent the limit of the sample stage displacement
 # - Improve scan description: take into account radius being able to change
+# - Rework scan selection to allow modifying it and to have both auto-mode and defined scan from parameters
 # - Benchmark access 3 slices in 2k**3 dataset: hdf5, zarr, caterva... disk, ssd, ram, memcached
 # - Support live update of the 3D stack
 # - When dragging line markers, they are not exactly synchronized
@@ -33,6 +34,7 @@
 # - Handle the colormap correctly with the min/max of the stack, not of the image
 # - Add a tool to set the colormap from a ROI (should go into silx)
 # - When volume is loading, add a mode  showing the latest slice in the top view
+# - Use status bar to document mode and modifier keys (e.g., for pan constraint)
 
 # - 2nd widget for huge 2D data images + photo layer
 
@@ -40,7 +42,6 @@
 # - Select the right detector when drawing a ROI
 # - Check usage of float16
 # - Change up/down of the volume (??)
-# - Modifier key to change diameter of circle remaining centered
 # - colormap: add per-slice autoscale
 # - Option to have one slice as full screen
 
@@ -1169,13 +1170,25 @@ class VolumeView(qt.QMainWindow):
         self._colormap.setVRange(0., 4.)  # TODO make autoscale according to whole stack, not image
 
         # Create ROI action
-        self._createROIAction = qt.QAction()
-        self._createROIAction.setIcon(icons.getQIcon('add-shape-point'))
-        self._createROIAction.setText("Add Selections")
-        self._createROIAction.setToolTip('Create a new selection by clicking on a slice')
-        self._createROIAction.setCheckable(True)
-        self._createROIAction.setChecked(False)
-        self._createROIAction.triggered.connect(self.__createROIActionTriggered)
+        self._createPolygonROIAction = qt.QAction()
+        self._createPolygonROIAction.setIcon(icons.getQIcon('add-shape-polygon'))
+        self._createPolygonROIAction.setText("Add Selections")
+        self._createPolygonROIAction.setToolTip(
+            'Create a new selection by selecting a polygon area on a slice')
+        self._createPolygonROIAction.setCheckable(True)
+        self._createPolygonROIAction.setChecked(False)
+        self._createPolygonROIAction.triggered.connect(
+            self.__createPolygonROIActionTriggered)
+
+        self._createDrawnROIAction = qt.QAction()
+        self._createDrawnROIAction.setIcon(icons.getQIcon('add-shape-unknown'))
+        self._createDrawnROIAction.setText("Add Selections")
+        self._createDrawnROIAction.setToolTip(
+            'Create a new selection by drawing on a slice')
+        self._createDrawnROIAction.setCheckable(True)
+        self._createDrawnROIAction.setChecked(False)
+        self._createDrawnROIAction.triggered.connect(
+            self.__createDrawnROIActionTriggered)
 
         # Slice model
         self._topSlice, self._frontSlice, self._sideSlice = None, None, None
@@ -1255,9 +1268,13 @@ class VolumeView(qt.QMainWindow):
         self._roitable = ROI3DTableWidget(types=types)
         self._roitable.sigCenter.connect(self.__centerPlots)
 
-        createROIBtn = qt.QToolButton()
-        createROIBtn.setToolButtonStyle(qt.Qt.ToolButtonTextBesideIcon)
-        createROIBtn.setDefaultAction(self._createROIAction)
+        createPolygonROIBtn = qt.QToolButton()
+        createPolygonROIBtn.setToolButtonStyle(qt.Qt.ToolButtonTextBesideIcon)
+        createPolygonROIBtn.setDefaultAction(self._createPolygonROIAction)
+
+        createDrawnROIBtn = qt.QToolButton()
+        createDrawnROIBtn.setToolButtonStyle(qt.Qt.ToolButtonTextBesideIcon)
+        createDrawnROIBtn.setDefaultAction(self._createDrawnROIAction)
 
         self._scanComboBox = qt.QComboBox()
         self._scanComboBox.setToolTip(
@@ -1269,7 +1286,8 @@ class VolumeView(qt.QMainWindow):
         layout = qt.QVBoxLayout(roiGroupBox)
         layout.addWidget(self._roitable)
         hlayout = qt.QHBoxLayout()
-        hlayout.addWidget(createROIBtn)
+        hlayout.addWidget(createPolygonROIBtn)
+        hlayout.addWidget(createDrawnROIBtn)
         hlayout.addWidget(qt.QLabel('Default:'))
         hlayout.addWidget(self._scanComboBox)
         hlayout.addStretch(1)
@@ -1319,7 +1337,8 @@ class VolumeView(qt.QMainWindow):
             parent=self, plot=self._topPlot)
         toolbar.addAction(action)
 
-        toolbar.addAction(self._createROIAction)
+        toolbar.addAction(self._createPolygonROIAction)
+        toolbar.addAction(self._createDrawnROIAction)
 
         toolbar.addSeparator()
 
@@ -1333,8 +1352,9 @@ class VolumeView(qt.QMainWindow):
 
     def __topPlotInteractiveModeChanged(self, source):
         """Synchronize interactive mode between plots"""
-        if source is not self._createROIAction:  # Sync create ROI action
-            self._createROIAction.setChecked(False)
+        for action in (self._createPolygonROIAction, self._createDrawnROIAction):
+            if source is not action:  # Sync create ROI action
+                action.setChecked(False)
 
         mode = self._topPlot.getInteractiveMode()
         for plot in (self._frontPlot, self._sidePlot):
@@ -1365,7 +1385,18 @@ class VolumeView(qt.QMainWindow):
         max_ = min_ + self.getResolution()[dim] * max_
         return numpy.clip(x, min_, max_), numpy.clip(y, min_, max_)
 
-    def __createROIActionTriggered(self, checked=False):
+    def __createPolygonROIActionTriggered(self, checked=False):
+        """Handle create ROI Action"""
+        if checked:
+            self._topPlot.setInteractiveMode(
+                mode='select-draw',
+                color='pink',
+                shape='polygon',
+                label='drawroi',
+                zoomOnWheel=True,
+                source=self._createPolygonROIAction)
+
+    def __createDrawnROIActionTriggered(self, checked=False):
         """Handle create ROI Action"""
         if checked:
             self._topPlot.setInteractiveMode(
@@ -1374,29 +1405,32 @@ class VolumeView(qt.QMainWindow):
                 shape='polylines',
                 label='drawroi',
                 zoomOnWheel=True,
-                source=self._createROIAction)
+                source=self._createDrawnROIAction)
 
     def __plotChanged(self, event):
         """Handle signal from the plots"""
-        if not self._createROIAction.isChecked():
-            return
+        if self._createDrawnROIAction.isChecked():
+            if event['event'] == 'drawingProgress':
+                plot = self.sender()
+                self.__newROIShape = plot.addShapeItem(
+                    xdata=event['xdata'],
+                    ydata=event['ydata'],
+                    legend='new roi contour',
+                    shape='polygon',
+                    color='pink',
+                    fill=False,
+                    overlay=True)
 
-        if event['event'] == 'drawingProgress':
-            plot = self.sender()
-            self.__newROIShape = plot.addShapeItem(
-                xdata=event['xdata'],
-                ydata=event['ydata'],
-                legend='new roi contour',
-                shape='polygon',
-                color='red',
-                fill=False,
-                overlay=True)
+            if event['event'] == 'drawingFinished':
+                plot = self.sender()
+                if self.__newROIShape is not None:
+                    plot.removeItem(self.__newROIShape)
+                    self.__newROIShape = None
 
-        if event['event'] == 'drawingFinished':
+        if ((self._createDrawnROIAction.isChecked() or
+                self._createPolygonROIAction.isChecked()) and
+                event['event'] == 'drawingFinished'):
             plot = self.sender()
-            if self.__newROIShape is not None:
-                plot.removeItem(self.__newROIShape)
-                self.__newROIShape = None
             if plot is self._topPlot:
                 coords = numpy.transpose((
                     event['xdata'],
