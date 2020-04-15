@@ -25,6 +25,7 @@
 
 # TODOs
 # - Add some constraint on the 3D ROI to represent the limit of the sample stage displacement
+# - Improve scan description: take into account radius being able to change
 # - Benchmark access 3 slices in 2k**3 dataset: hdf5, zarr, caterva... disk, ssd, ram, memcached
 # - Support live update of the 3D stack
 # - When dragging line markers, they are not exactly synchronized
@@ -36,7 +37,7 @@
 # - 2nd widget for huge 2D data images + photo layer
 
 # From feedbacks
-# - Add ROI by drawning and selecting the right detector: WIP
+# - Add select the right detector when drawing a ROI
 # - Check usage of float16
 # - Change up/down of the volume (??)
 # - Add some constraints horizontal/vertical on panning (with modifier keys)
@@ -1383,34 +1384,51 @@ class VolumeView(qt.QMainWindow):
             if self.__newROIShape is not None:
                 plot.removeItem(self.__newROIShape)
                 self.__newROIShape = None
-            self.__addROI3DFromSelection(plot, event['xdata'], event['ydata'])
+            if plot is self._topPlot:
+                coords = numpy.transpose((
+                    event['xdata'],
+                    event['ydata'],
+                    self._topSlice.getSlicePosition() * numpy.ones(len(event['xdata']))))
+            elif plot is self._frontPlot:
+                coords = numpy.transpose((
+                    event['xdata'],
+                    self._frontSlice.getSlicePosition() * numpy.ones(len(event['xdata'])),
+                    event['ydata']))
+            else:  # plot is self._sidePlot
+                coords = numpy.transpose((
+                    self._sideSlice.getSlicePosition() * numpy.ones(len(event['xdata'])),
+                    event['xdata'],
+                    event['ydata']))
 
-    def __addROI3DFromSelection(self, plot, x, y):
+            self.__addROI3DFromSelection(coords)
+
+    def __addROI3DFromSelection(self, points):
+        """Create a ROI from a selection done with a set of points.
+
+        :param numpy.ndarray points: Nx3 array of points (x, y, z)
+        """
         # TODO select right scan
         scan = self._scanComboBox.currentData()
 
-        x, y = numpy.mean(x), numpy.mean(y)  # TODO use shape to select ROI
+        center = 0.5 * (numpy.max(points, axis=0) + numpy.min(points, axis=0))
+        radius = numpy.max(numpy.linalg.norm(points[:, :2] - center[:2], axis=1))
+        if radius < 0.01: # TODO make constraints
+            radius = 0.01
+        height = numpy.max(points[:, 2]) - numpy.min(points[:, 2])
+        if height == 0:
+            height = 2 * radius  # Fallback for top slice selection
 
         roi = ROI3D()
         roi.setName('%03d' % self.__roi_index)
         self.__roi_index += 1
         roi.setScan(scan)
-        roi.setHeight(roi.getWidth())  # Use a cube as default
-
-        res_z, res_y, res_x = self.getResolution()
-        oz, oy, ox = self.getOrigin()
-        browser_x = self._sideSlice.getSlicePosition()
-        browser_y = self._frontSlice.getSlicePosition()
-        browser_z = self._topSlice.getSlicePosition()
-        roi.setCurrentSlicePosition(browser_x, browser_y, browser_z)
-
-        if plot is self._topPlot:
-            cx, cy, cz = x, y, browser_z
-        elif plot is self._frontPlot:
-            cx, cy, cz = x, browser_y, y
-        elif plot is self._sidePlot:
-            cx, cy, cz = browser_x, x, y
-        roi.setCenter(cx, cy, cz)
+        roi.setWidth(2 * radius)
+        roi.setHeight(height)
+        roi.setCurrentSlicePosition(
+            self._sideSlice.getSlicePosition(),
+            self._frontSlice.getSlicePosition(),
+            self._topSlice.getSlicePosition())
+        roi.setCenter(*center)
 
         roi.getROI('axial').addToPlot(self._topPlot)
         roi.getROI('front').addToPlot(self._frontPlot)
