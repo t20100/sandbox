@@ -161,10 +161,10 @@ class Scan:
 
 # ROI
 
-class CircularROI(qt.QObject):
-    """A moveable and resizable circular ROI.
+class BaseDraggableROI(qt.QObject):
+    """A moveable ROI that can be dragged by its center.
 
-    :param QWidget parent:
+    :param QObject parent:
     """
 
     changed = qt.Signal()
@@ -176,20 +176,10 @@ class CircularROI(qt.QObject):
     It provides the x and y data coordinates of the currently dragged position.
     """
 
-    _CIRCLE_NB_POINTS = 100
-    """Number of points in the circle"""
-
     def __init__(self, parent=None):
         super().__init__(parent)
 
         self.__visible = True
-        self.__radius = 0.
-
-        self._circle = items.Shape('polygon')
-        self._circle.setName(self._legend('rectangle'))
-        self._circle.setOverlay(True)
-        self._circle.setLineWidth(2)
-        self._items = [self._circle]
 
         self._centerMarker = items.Marker()
         self._centerMarker.setPosition(0, 0)
@@ -197,7 +187,7 @@ class CircularROI(qt.QObject):
         self._centerMarker._setDraggable(True)
         self._centerMarker.setSymbol('o')
         self._centerMarker.sigItemChanged.connect(self.__markerChanged)
-        self._items.append(self._centerMarker)
+        self._items = [self._centerMarker]
 
         self.setColor('pink')
 
@@ -253,9 +243,6 @@ class CircularROI(qt.QObject):
 
     def _update(self) -> None:
         """Update the displayed shape and send event"""
-        coords = numpy.linspace(0, 2*numpy.pi, self._CIRCLE_NB_POINTS)
-        points = numpy.transpose((numpy.cos(coords), numpy.sin(coords)))
-        self._circle.setPoints(self.getCenter() + self.getRadius() * points)
         self.changed.emit()
 
     def setCenter(self, x: float, y: float) -> None:
@@ -265,6 +252,36 @@ class CircularROI(qt.QObject):
     def getCenter(self) -> typing.Tuple[float]:
         """Returns the center (cx, cy) of the ROI"""
         return self._centerMarker.getPosition()
+
+
+class CircularROI(BaseDraggableROI):
+    """A moveable and resizable circular ROI.
+
+    :param QWidget parent:
+    """
+
+    _CIRCLE_NB_POINTS = 100
+    """Number of points in the circle"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.__radius = 0.
+
+        self._circle = items.Shape('polygon')
+        self._circle.setName(self._legend('rectangle'))
+        self._circle.setOverlay(True)
+        self._circle.setLineWidth(2)
+        self._items.append(self._circle)
+
+        self.setColor('pink')
+
+    def _update(self) -> None:
+        """Update the displayed shape and send event"""
+        coords = numpy.linspace(0, 2*numpy.pi, self._CIRCLE_NB_POINTS)
+        points = numpy.transpose((numpy.cos(coords), numpy.sin(coords)))
+        self._circle.setPoints(self.getCenter() + self.getRadius() * points)
+        super()._update()
 
     def setRadius(self, radius: float) -> None:
         """Set the radius of the ROI"""
@@ -277,107 +294,31 @@ class CircularROI(qt.QObject):
         return self.__radius
 
 
-class DraggableRectangle(qt.QObject):
+class DraggableRectangle(BaseDraggableROI):
     """A rectangular ROI that can be dragged with an anchor at its center.
 
     :param QWidget parent:
     """
 
-    changed = qt.Signal()
-    """Signal emitted each time the item is changed"""
-
-    dragged = qt.Signal(float, float)
-    """Signal emitted when the item is changed by a direct user interaction.
-
-    It provides the x and y data coordinates of the currently dragged position.
-    """
-
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.__visible = True
         self.__size = 0, 0  # (width, height)
 
         self._rectangle = items.Shape('polygon')
         self._rectangle.setName(self._legend('rectangle'))
         self._rectangle.setOverlay(True)
         self._rectangle.setLineWidth(2)
-        self._items = [self._rectangle]
-
-        self._centerMarker = items.Marker()
-        self._centerMarker.setPosition(0, 0)
-        self._centerMarker.setName(self._legend('center_marker'))
-        self._centerMarker._setDraggable(True)
-        self._centerMarker.setSymbol('o')
-        self._centerMarker.sigItemChanged.connect(self.__markerChanged)
-        self._items.append(self._centerMarker)
+        self._items.append(self._rectangle)
 
         self.setColor('pink')
-
-    def __del__(self):
-        for item in self._items:
-            plot = item.getPlot()
-            if plot is not None:
-                plot.removeItem(item)
-
-    def _setVisible(self, visible: bool) -> None:
-        """Set the visibility of contained items"""
-        for item in self._items:
-            item.setVisible(visible)
-
-    def _legend(self, suffix: str) -> str:
-        """Generates legends to use internally"""
-        return '_'.join((self.__class__.__name__, str(id(self)), suffix))
-        
-    def addToPlot(self, plot):
-        for item in self._items:
-            assert item.getPlot() is None
-        for item in self._items:
-            plot.addItem(item)
-
-    def setLineWidth(self, width: float) -> None:
-        """Set the width of the line"""
-        for item in self._items:
-            if isinstance(item, items.LineMixIn):
-                item.setLineWidth(width)
-
-    def setLineStyle(self, linestyle: str) -> None:
-        """Set the style of the line of the ROI"""
-        for item in self._items:
-            if isinstance(item, items.LineMixIn):
-                item.setLineStyle(linestyle)
-
-    def setColor(self, color) -> None:
-        """Set the color of the marker
-
-        :param color: The color description
-        """
-        for item in self._items:
-            if isinstance(item, items.ColorMixIn):
-                item.setColor(color)
-
-    def __markerChanged(self, event) -> None:
-        """Handle marker changed events"""
-        if event == items.ItemChangedType.POSITION:
-            self._update()
-            marker = self.sender()
-            if marker.isBeingDragged():
-                self.dragged.emit(*marker.getPosition())
 
     def _update(self) -> None:
         """Update the displayed shape and send event"""
         square = numpy.array(((-0.5, -0.5), (-0.5, 0.5), (0.5, 0.5), (0.5, -0.5)))
         self._rectangle.setPoints(self.getCenter() + self.getSize() * square)
-        self.changed.emit()
+        super()._update()
 
-    def setCenter(self, x: float, y: float) -> None:
-        """Set the center of the ROI"""
-        self._centerMarker.setPosition(x, y)
-
-    def getCenter(self) -> typing.Tuple[float]:
-        """Returns the center (cx, cy) of the ROI"""
-        return self._centerMarker.getPosition()
-    
     def setSize(self, width: float, height: float) -> None:
         """Set the size of the ROI."""
         size = width, height
