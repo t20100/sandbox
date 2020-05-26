@@ -54,8 +54,6 @@
 # - Idea: Mode to draw a rectangle on a slide to select the right scan and create the proper ROI
 
 # silx
-# - Update silx ROIs and use it (that would bring the display of the name along with the ROI)
-# - Fix silx issue with axes sync
 # - Make silx plot action work for multiple plots at once
 
 from collections import namedtuple
@@ -418,6 +416,7 @@ class ROI3D(qt.QObject):
         self.__rois['side'].sigHandleDragged.connect(self.__markerDragged)
 
         for roiItem in self.__rois.values():
+            roiItem.setName(self.getName())
             roiItem.setColor('pink')
             roiItem.setLineWidth(2)
             roiItem.setEditable(True)
@@ -438,6 +437,8 @@ class ROI3D(qt.QObject):
         name = str(name)
         if name != self.__name:
             self.__name = name
+            for roiItem in self.__rois.values():
+                roiItem.setName(self.getName())
             self.sigItemChanged.emit(items.ItemChangedType.NAME)
 
     def isVisible(self):
@@ -1426,7 +1427,7 @@ class VolumeView(qt.QMainWindow):
             height = 2 * radius  # Fallback for axial slice selection
 
         roi = ROI3D()
-        roi.setName('%03d' % self.__roi_index)
+        roi.setName('ROI-%d' % self.__roi_index)
         self.__roi_index += 1
         roi.setScan(scan)
         roi.setWidth(2 * radius)
