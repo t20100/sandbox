@@ -186,24 +186,21 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
     def __init__(self, parent=None):
         roi.HandleBasedROI.__init__(self, parent=parent)
         items.LineMixIn.__init__(self)
-        self.__size = 0, 0
+        self.__size = 0., 0.
+        self.__center = 0., 0.
 
         self._handleLeft = self.addHandle()
         self._handleLeft._setConstraint(
             WeakMethodProxy(self.__leftConstraint))
-        self._handleLeft.sigItemChanged.connect(self.__handleDragged)
         self._handleRight = self.addHandle()
         self._handleRight._setConstraint(
             WeakMethodProxy(self.__rightConstraint))
-        self._handleRight.sigItemChanged.connect(self.__handleDragged)
         self._handleTop = self.addHandle()
         self._handleTop._setConstraint(
             WeakMethodProxy(self.__topConstraint))
-        self._handleTop.sigItemChanged.connect(self.__handleDragged)
         self._handleBottom = self.addHandle()
         self._handleBottom._setConstraint(
             WeakMethodProxy(self.__bottomConstraint))
-        self._handleBottom.sigItemChanged.connect(self.__handleDragged)
         self._handleCenter = self.addTranslateHandle()
         self._handleCenter._setConstraint(
             WeakMethodProxy(self.__centerConstraint))
@@ -219,12 +216,11 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
         self.__shape = shape
         self.addItem(shape)
 
-    def __handleDragged(self, event) -> None:
-        """Handle marker changed events"""
-        if event == items.ItemChangedType.POSITION:
-            marker = self.sender()
-            if marker.isBeingDragged():
-                self.sigHandleDragged.emit(*marker.getPosition())
+    def handleDragUpdated(self, handle, origin, previous, current):
+        """Called when an handle drag position changed"""
+        super().handleDragUpdated(handle, origin, previous, current)
+        if handle != self._handleCenter:
+            self.sigHandleDragged.emit(*current)
 
     def __centerConstraint(self, x: float, y: float) -> None:
         """Constraint center anchor depending on modifier keys"""
@@ -280,14 +276,6 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
     def _updateText(self, text):
         self._handleLabel.setText(text)
 
-    def getCenter(self):
-        """Returns the central point of this rectangle
-
-        :rtype: numpy.ndarray([float,float])
-        """
-        pos = self._handleCenter.getPosition()
-        return numpy.array(pos)
-
     def getOrigin(self):
         """Returns the corner point with the smallest coordinates
 
@@ -321,14 +309,24 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
             self.__size = size
             self.__updateHandles()
 
+    def getCenter(self):
+        """Returns the central point of this rectangle
+
+        :rtype: numpy.ndarray([float,float])
+        """
+        return numpy.array(self.__center)
+
     def setCenter(self, position):
         """Set the size of this ROI
 
         :param numpy.ndarray position: Location of the center of the ROI
         """
-        with blockSignals(self._handleCenter):
-            self._handleCenter.setPosition(*position)
-        self.__updateHandles()
+        position = float(position[0]), float(position[1])
+        if position != self.__center:
+            self.__center = position
+            with blockSignals(self._handleCenter):
+                self._handleCenter.setPosition(*self.__center)
+            self.__updateHandles()
 
     def __updateHandles(self):
         """Update handles"""
