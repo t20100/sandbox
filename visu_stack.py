@@ -407,7 +407,7 @@ class ROI3D(qt.QObject):
 
         self.__rois = {}
         self.__rois['axial'] = roi.CircleROI()
-        self.__rois['axial'].sigRegionChanged.connect(self.__topChanged)
+        self.__rois['axial'].sigRegionChanged.connect(self.__axialChanged)
 
         self.__rois['front'] = RectangleROI2()
         self.__rois['front'].sigRegionChanged.connect(self.__frontChanged)
@@ -491,7 +491,7 @@ class ROI3D(qt.QObject):
     def getCurrentSlicePosition(self):
         return self.__currentSlices
 
-    def __topChanged(self):
+    def __axialChanged(self):
         cx, cy = self.__rois['axial'].getCenter()
         cz = self.getCenter()[2]
         self.setWidth(2 * self.__rois['axial'].getRadius())
@@ -1145,22 +1145,22 @@ class VolumeView(qt.QMainWindow):
             self.__createDrawnROIActionTriggered)
 
         # Slice model
-        self._topSlice, self._frontSlice, self._sideSlice = None, None, None
+        self._axialSlice, self._frontSlice, self._sideSlice = None, None, None
 
         # frame browsers
-        self._topBrowser = SliceBrowser(self, self._topSlice)
+        self._axialBrowser = SliceBrowser(self, self._axialSlice)
         self._frontBrowser = SliceBrowser(self, self._frontSlice)
         self._sideBrowser = SliceBrowser(self, self._sideSlice)
 
         # Plot widgets
         self.__markers = []
 
-        self._topPlot = SlicePlot(
-            parent=self, backend=backend, model=self._topSlice)
-        self._topPlot.setDefaultColormap(self._colormap)
+        self._axialPlot = SlicePlot(
+            parent=self, backend=backend, model=self._axialSlice)
+        self._axialPlot.setDefaultColormap(self._colormap)
         self.__markers.extend([
-            self._topPlot.addXMarkerItem(0, legend='side-marker', text='side'),
-            self._topPlot.addYMarkerItem(0, legend='front-marker', text='front')])
+            self._axialPlot.addXMarkerItem(0, legend='side-marker', text='side'),
+            self._axialPlot.addYMarkerItem(0, legend='front-marker', text='front')])
 
         self._frontPlot = SlicePlot(
             parent=self, backend=backend, model=self._frontSlice)
@@ -1177,16 +1177,16 @@ class VolumeView(qt.QMainWindow):
             self._sidePlot.addYMarkerItem(0, legend='axial-marker', text='axial')])
 
         self._roiManagers = {
-            'axial': RegionOfInterestManager(self._topPlot),
+            'axial': RegionOfInterestManager(self._axialPlot),
             'front': RegionOfInterestManager(self._frontPlot),
             'side': RegionOfInterestManager(self._sidePlot),
             }
 
         # Sync
-        self._topPlot.sigInteractiveModeChanged.connect(
-            self.__topPlotInteractiveModeChanged)
+        self._axialPlot.sigInteractiveModeChanged.connect(
+            self.__axialPlotInteractiveModeChanged)
 
-        for plot in (self._topPlot, self._frontPlot, self._sidePlot):
+        for plot in (self._axialPlot, self._frontPlot, self._sidePlot):
             plot.sigPlotSignal.connect(self.__plotChanged)
 
         for marker in self.__markers:
@@ -1204,15 +1204,15 @@ class VolumeView(qt.QMainWindow):
             SyncAxes(axes, syncLimits=False, syncScale=True,
                      syncDirection=True, syncCenter=True, syncZoom=True)
             for axes in (
-                [self._topPlot.getXAxis(), self._frontPlot.getXAxis()],
+                [self._axialPlot.getXAxis(), self._frontPlot.getXAxis()],
                 [self._frontPlot.getYAxis(), self._sidePlot.getYAxis()],
-                [self._topPlot.getYAxis(), self._sidePlot.getXAxis()])
+                [self._axialPlot.getYAxis(), self._sidePlot.getXAxis()])
             ]
 
         # colorbar
         self._colorbar = ColorBarWidget(parent=self)
         #self._colorbar.setColormap(self._colormap)
-        self._colorbar.setPlot(self._topPlot)
+        self._colorbar.setPlot(self._axialPlot)
         self._colorbar.setLegend("Data")
 
         # Make ColorBarWidget background white by changing its palette
@@ -1265,7 +1265,7 @@ class VolumeView(qt.QMainWindow):
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        layout.addWidget(self._topPlot, 0, 0)
+        layout.addWidget(self._axialPlot, 0, 0)
         layout.addLayout(options_layout, 0, 1, qt.Qt.AlignLeft)
         #layout.addWidget(self._colorbar, 0, 1, qt.Qt.AlignLeft)
         layout.addWidget(self._frontPlot, 1, 0)
@@ -1273,9 +1273,9 @@ class VolumeView(qt.QMainWindow):
 
         form = qt.QFormLayout()
         layout.addLayout(form, 3, 0, 1, 2)
-        title = "%s (along %s)" % (self._topSlice.getTitle(),
-                                   self._topSlice.getAxisName())
-        form.addRow(title, self._topBrowser)
+        title = "%s (along %s)" % (self._axialSlice.getTitle(),
+                                   self._axialSlice.getAxisName())
+        form.addRow(title, self._axialBrowser)
 
         title = "%s (along %s)" % (self._frontSlice.getTitle(),
                                    self._frontSlice.getAxisName())
@@ -1290,11 +1290,11 @@ class VolumeView(qt.QMainWindow):
         self.addToolBar(qt.Qt.TopToolBarArea, toolbar)
 
         action = plot_actions.mode.ZoomModeAction(
-            parent=self, plot=self._topPlot)
+            parent=self, plot=self._axialPlot)
         toolbar.addAction(action)
 
         action = plot_actions.mode.PanModeAction(
-            parent=self, plot=self._topPlot)
+            parent=self, plot=self._axialPlot)
         toolbar.addAction(action)
 
         toolbar.addAction(self._createPolygonROIAction)
@@ -1303,20 +1303,20 @@ class VolumeView(qt.QMainWindow):
         toolbar.addSeparator()
 
         action = plot_actions.control.ResetZoomAction(
-            parent=self, plot=self._topPlot)
+            parent=self, plot=self._axialPlot)
         action.triggered.connect(self.__resetZoom)
         toolbar.addAction(action)
 
         toolbar.addAction(plot_actions.control.ColormapAction(
-            parent=self, plot=self._topPlot))
+            parent=self, plot=self._axialPlot))
 
-    def __topPlotInteractiveModeChanged(self, source):
+    def __axialPlotInteractiveModeChanged(self, source):
         """Synchronize interactive mode between plots"""
         for action in (self._createPolygonROIAction, self._createDrawnROIAction):
             if source is not action:  # Sync create ROI action
                 action.setChecked(False)
 
-        mode = self._topPlot.getInteractiveMode()
+        mode = self._axialPlot.getInteractiveMode()
         for plot in (self._frontPlot, self._sidePlot):
             plot.setInteractiveMode(source=source, **mode)
 
@@ -1336,7 +1336,7 @@ class VolumeView(qt.QMainWindow):
             elif face == 'front':
                 self._frontSlice.setSlicePosition(position)
             elif face == 'axial':
-                self._topSlice.setSlicePosition(position)
+                self._axialSlice.setSlicePosition(position)
 
     def __lineMarkerConstraint(self, dim, x, y):
         min_ = self.getOrigin()[dim]
@@ -1348,7 +1348,7 @@ class VolumeView(qt.QMainWindow):
     def __createPolygonROIActionTriggered(self, checked=False):
         """Handle create ROI Action"""
         if checked:
-            self._topPlot.setInteractiveMode(
+            self._axialPlot.setInteractiveMode(
                 mode='select-draw',
                 color='pink',
                 shape='polygon',
@@ -1359,7 +1359,7 @@ class VolumeView(qt.QMainWindow):
     def __createDrawnROIActionTriggered(self, checked=False):
         """Handle create ROI Action"""
         if checked:
-            self._topPlot.setInteractiveMode(
+            self._axialPlot.setInteractiveMode(
                 mode='select-draw',
                 color=(0., 0., 0., 0.),
                 shape='polylines',
@@ -1391,11 +1391,11 @@ class VolumeView(qt.QMainWindow):
                 self._createPolygonROIAction.isChecked()) and
                 event['event'] == 'drawingFinished'):
             plot = self.sender()
-            if plot is self._topPlot:
+            if plot is self._axialPlot:
                 coords = numpy.transpose((
                     event['xdata'],
                     event['ydata'],
-                    self._topSlice.getSlicePosition() * numpy.ones(len(event['xdata']))))
+                    self._axialSlice.getSlicePosition() * numpy.ones(len(event['xdata']))))
             elif plot is self._frontPlot:
                 coords = numpy.transpose((
                     event['xdata'],
@@ -1423,7 +1423,7 @@ class VolumeView(qt.QMainWindow):
             radius = 0.01
         height = numpy.max(points[:, 2]) - numpy.min(points[:, 2])
         if height == 0:
-            height = 2 * radius  # Fallback for top slice selection
+            height = 2 * radius  # Fallback for axial slice selection
 
         roi = ROI3D()
         roi.setName('%03d' % self.__roi_index)
@@ -1434,7 +1434,7 @@ class VolumeView(qt.QMainWindow):
         roi.setCurrentSlicePosition(
             self._sideSlice.getSlicePosition(),
             self._frontSlice.getSlicePosition(),
-            self._topSlice.getSlicePosition())
+            self._axialSlice.getSlicePosition())
         roi.setCenter(*center)
 
         for orientation in ('axial', 'front', 'side'):
@@ -1443,7 +1443,7 @@ class VolumeView(qt.QMainWindow):
 
         self._roitable.addROI3D(roi)
 
-        roi.sigMarkerDragged.connect(self._topSlice.setSlicePosition)
+        roi.sigMarkerDragged.connect(self._axialSlice.setSlicePosition)
 
     def __sliceChanged(self, face, value):
         """Handle slice change
@@ -1463,7 +1463,7 @@ class VolumeView(qt.QMainWindow):
         self._roitable.setCurrentSlicePosition(
             self._sideSlice.getSlicePosition(),
             self._frontSlice.getSlicePosition(),
-            self._topSlice.getSlicePosition())
+            self._axialSlice.getSlicePosition())
 
         self.__handleMarker = True
 
@@ -1479,14 +1479,14 @@ class VolumeView(qt.QMainWindow):
         if self.getData() is None:
             depth, height, width = 0, 0, 0
 
-            topDataProvider = None
+            axialDataProvider = None
             frontDataProvider = None
             sideDataProvider = None
 
         else:
             depth, height, width = numpy.array(self.__data.shape) - 1
 
-            def topDataProvider(index):
+            def axialDataProvider(index):
                 return self.getData()[index, :, :]
 
             def frontDataProvider(index):
@@ -1495,19 +1495,19 @@ class VolumeView(qt.QMainWindow):
             def sideDataProvider(index):
                 return self.getData()[:, :, index]
 
-        self._topSlice = SliceModel(
+        self._axialSlice = SliceModel(
             origin=(ox, oy),
             scale=(res_x, res_y),
             range_=(0, depth),
             normalization=(oz, res_z),
-            dataProvider=topDataProvider,
+            dataProvider=axialDataProvider,
             unit=unit,
             **SliceModel.AXIAL)
-        self._topSlice.sigCurrentIndexChanged.connect(
+        self._axialSlice.sigCurrentIndexChanged.connect(
             functools.partial(self.__sliceChanged, 'axial'))
-        self._topSlice.setCurrentIndex(depth // 2)
-        self._topPlot.setModel(self._topSlice)
-        self._topBrowser.setModel(self._topSlice)
+        self._axialSlice.setCurrentIndex(depth // 2)
+        self._axialPlot.setModel(self._axialSlice)
+        self._axialBrowser.setModel(self._axialSlice)
 
         self._frontSlice = SliceModel(
             origin=(ox, oz),
@@ -1538,7 +1538,7 @@ class VolumeView(qt.QMainWindow):
         self._sideBrowser.setModel(self._sideSlice)
 
         if resetZoom:
-            self._topPlot.resetZoom()
+            self._axialPlot.resetZoom()
             self._frontPlot.resetZoom()
             self._sidePlot.resetZoom()
 
@@ -1611,8 +1611,8 @@ class VolumeView(qt.QMainWindow):
         self._frontSlice.setSlicePosition(cy)
         self._frontPlot.centerSlice(cx, cz)
 
-        self._topSlice.setSlicePosition(cz)
-        self._topPlot.centerSlice(cx, cy)
+        self._axialSlice.setSlicePosition(cz)
+        self._axialPlot.centerSlice(cx, cy)
 
     def setData(self, data):
         """The data to view, no copy is made.
