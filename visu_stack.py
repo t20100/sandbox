@@ -58,6 +58,7 @@
 
 from collections import namedtuple
 import functools
+import io
 import logging
 import os
 import sys
@@ -1628,9 +1629,22 @@ class VolumeView(qt.QMainWindow):
         :rtype: Union[None,numpy.ndarray,h5py.Dataset]
         """
         return self.__data
- 
+
+
+# Data loaders ###############################################################
+
+class NumpyLoader:
+    """Loading numpy file with same API as other loaders"""
+    def __init__(self, filename):
+        self.data = numpy.load(url.file_path(), mmap_mode='r+')
+        self.loaded_index = len(self.data) - 1
+
+    def start(self):
+        pass
+
 
 class H5LoadingThread(threading.Thread):
+    """Loading of HDF5 file"""
 
     def __init__(self, filename, dataset_name, progress=None):
         self._filename = filename
@@ -1642,7 +1656,7 @@ class H5LoadingThread(threading.Thread):
             dset = f[self._dataset_name]
             self.data = numpy.full(dset.shape, numpy.nan, dtype=dset.dtype)
 
-            super().__init__()
+        super().__init__()
 
     def run(self):
         with h5py.File(self._filename, 'r') as f:
@@ -1657,9 +1671,73 @@ class H5LoadingThread(threading.Thread):
                 time.sleep(0.01)
 
 
+class MemcachedLoadingThread(threading.Thread):
+
+    class NumpySerde(object):
+        """pymemcache serializer/deserializer for numpy.ndarray"""
+
+        def serialize(key, value):
+            if isinstance(value, numpy.ndarray):
+                with io.BytesIO() as buffer:
+                    numpy.save(buffer, value)
+                    return buffer.getvalue(), 2
+            else:
+                return value, 1
+
+        def deserialize(key, value, flags):
+            if flags == 1:
+                return value
+            elif flags == 2:
+                with io.BytesIO(value) as buffer:
+                    return numpy.load(buffer)
+            else:
+                raise RuntimeException("Unsupported serialization flags")
+
+    def __init__(self, server=('localhost', 11211), uid='data', progress=None):
+        from pymemcache.client.base import Client
+        import json
+
+        self._client = Client(server, serde=MemcachedLoadingThread.NumpySerde)
+        self._uid = uid
+        self._progress = progress
+
+        header = self._client.get(self._uid)
+        if header is None:
+            raise RuntimeError("Header information not available")
+        header = json.loads(header)
+        self._shape = tuple(header['shape'])
+        self._dtype = numpy.dtype(header['dtype'])
+
+        self.loaded_index = 0
+        self.data = numpy.full(self._shape, numpy.nan, dtype=self._dtype)
+
+        super().__init__()
+
+    def run(self):
+        length = len(self.data)
+        for index in range(length):
+            key = "%s[%d:%d,0:2048,0:2048]" % (self._uid, index, index+1)
+            while True:  # Wait for a slice
+                data = self._client.get(key)
+                if data is not None:
+                    self._client.delete(key, noreply=True)
+                    break
+                time.sleep(0.1)
+
+            self.data[index] = data[0]
+            self.loaded_index = index
+            self._progress(self.loaded_index, length)
+
+
 if __name__ == "__main__":
+    import argparse
     import sys
     from silx.io.url import DataUrl
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("source", help="Filename or UID on server")
+    parser.add_argument("--memcached", action="store_true", help="Load from memcached")
+    args = parser.parse_args()
 
     app = qt.QApplication([])
 
@@ -1677,37 +1755,39 @@ if __name__ == "__main__":
     window = VolumeView(backend='gl', scans=scans)
     window.show()
 
-    print('Loading')
-    url = DataUrl(sys.argv[1])
+    print('Init loading...')
 
-    if url.data_path() is None:
-        data_view = numpy.load(url.file_path(), mmap_mode='r+')
+    last_time = - float('inf')
+    future_result = None
+
+    def progress(index, total):
+        global last_time, future_result
+        t = time.time()
+        if t - last_time >= 2.:  # Update at most every second
+            print('update', index)
+            if future_result is None or future_result.done():
+                last_time = t
+                future_result = submitToQtMainThread(window.updateSlices)
+
+    if args.memcached:
+        loader = MemcachedLoadingThread(uid=args.source, progress=progress)
 
     else:
-        last_time = - float('inf')
-        future_result = None
+        url = DataUrl(args.source)
+        if url.file_path().endswith('.npy'):
+            loader = NumpyLoader(url.file_path())
+        else:
+            loader = H5LoadingThread(
+                filename=url.file_path(),
+                dataset_name=url.data_path(),
+                progress=progress)
+    loader.start()
 
-        def progress(index, total):
-            global last_time, future_result
-            t = time.time()
-            if t - last_time >= 2.:  # Update at most every second
-                print('update', index)
-                if future_result is None or future_result.done():
-                    last_time = t
-                    future_result = submitToQtMainThread(window.updateSlices)
-
-        loader = H5LoadingThread(
-            filename=url.file_path(),
-            dataset_name=url.data_path(),
-            progress=progress)
-        data_view = loader.data
-        loader.start()
-
-    print('Loaded', data_view.shape)
+    print('Loading ready', loader.data.shape)
 
     window.setOrigin(1, 2, 3)
     window.setResolution(50*10e-5, 50*10e-5, 50*10e-5)
     #window.setResolution(50*10e-6, 50*10e-6, 50*10e-6)
-    window.setData(data_view)
+    window.setData(loader.data)
 
     sys.exit(app.exec_())
