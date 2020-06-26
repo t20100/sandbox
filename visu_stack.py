@@ -1027,6 +1027,10 @@ class SlicePlot(plot.PlotWidget):
 
     def __sliceIndexChanged(self, index: int) -> None:
         """Handle change of slice index"""
+        self.refreshPlot()
+
+    def refreshPlot(self):
+        """Update plotted image and title"""
         model = self.getModel()
         self.addImage(model.getData(),
                       scale=model.getSliceScale(),
@@ -1544,7 +1548,9 @@ class VolumeView(qt.QMainWindow):
 
     def updateSlices(self):
         """Update plotted data"""
-        self.__update(resetZoom=False)
+        self._axialPlot.refreshPlot()
+        self._frontPlot.refreshPlot()
+        self._sidePlot.refreshPlot()
 
     def getUnit(self):
         """Returns the unit in use
@@ -1633,17 +1639,33 @@ class VolumeView(qt.QMainWindow):
 
 # Data loaders ###############################################################
 
-class NumpyLoader:
+class BaseLoader(threading.Thread):
+    def __init__(self, *args, **kwargs):
+        self._running = False
+        super().__init__(*args, **kwargs)
+
+    def start(self):
+        self._running = True
+        super().start()
+
+    def stop(self):
+        self._running = False
+
+    def is_running(self):
+        return self._running
+
+class NumpyLoader(BaseLoader):
     """Loading numpy file with same API as other loaders"""
     def __init__(self, filename):
         self.data = numpy.load(url.file_path(), mmap_mode='r+')
         self.loaded_index = len(self.data) - 1
+        super().__init__()
 
     def start(self):
         pass
 
 
-class H5LoadingThread(threading.Thread):
+class H5LoadingThread(BaseLoader):
     """Loading of HDF5 file"""
 
     def __init__(self, filename, dataset_name, progress=None):
@@ -1663,6 +1685,8 @@ class H5LoadingThread(threading.Thread):
             dset = f[self._dataset_name]
             length = len(dset)
             for index in range(length):
+                if not self.is_running():
+                    return  # Terminate
                 data = dset[index]
                 self.data[index] = data
                 self.loaded_index = index
@@ -1671,7 +1695,8 @@ class H5LoadingThread(threading.Thread):
                 time.sleep(0.01)
 
 
-class MemcachedLoadingThread(threading.Thread):
+class MemcachedLoadingThread(BaseLoader):
+    WAIT_TIME = 1.  # Seconds to wait until retry if a chunk is not available
 
     class NumpySerde(object):
         """pymemcache serializer/deserializer for numpy.ndarray"""
@@ -1693,40 +1718,61 @@ class MemcachedLoadingThread(threading.Thread):
             else:
                 raise RuntimeException("Unsupported serialization flags")
 
-    def __init__(self, server=('localhost', 11211), uid='data', progress=None):
+    def __init__(self, server=('localhost', 11211), uid='data', progress=None, delete=False):
         from pymemcache.client.base import Client
         import json
 
         self._client = Client(server, serde=MemcachedLoadingThread.NumpySerde)
-        self._uid = uid
+        self._uid = str(uid)
         self._progress = progress
+        self._delete = delete
 
         header = self._client.get(self._uid)
         if header is None:
             raise RuntimeError("Header information not available")
         header = json.loads(header)
-        self._shape = tuple(header['shape'])
+        self._shape = numpy.array(header['shape'])
+        self._shape.flags.writeable = False
+        assert len(self._shape) == 3
         self._dtype = numpy.dtype(header['dtype'])
+        self._chunks = numpy.array(header['chunks'])
+        self._chunks.flags.writeable = False
 
         self.loaded_index = 0
-        self.data = numpy.full(self._shape, numpy.nan, dtype=self._dtype)
+        self.data = numpy.zeros(self._shape, dtype=self._dtype)
 
         super().__init__()
 
     def run(self):
-        length = len(self.data)
-        for index in range(length):
-            key = "%s[%d:%d,0:2048,0:2048]" % (self._uid, index, index+1)
-            while True:  # Wait for a slice
-                data = self._client.get(key)
-                if data is not None:
-                    self._client.delete(key, noreply=True)
-                    break
-                time.sleep(0.1)
+        """Load data asynchronously from memcached.
 
-            self.data[index] = data[0]
-            self.loaded_index = index
-            self._progress(self.loaded_index, length)
+        Expect data to be a 3D dataset
+        """
+        key_template = self._uid + "[%d:%d,%d:%d,%d:%d]"
+        length = len(self.data)
+        chunks_per_dim = (self._shape - 1) // self._chunks + 1
+
+        for d0_chunk_index in range(chunks_per_dim[0]):
+            for d1_chunk_index in range(chunks_per_dim[1]):
+                for d2_chunk_index in range(chunks_per_dim[2]):
+                    starts = (d0_chunk_index, d1_chunk_index, d2_chunk_index) * self._chunks
+                    stops = numpy.min((starts + self._chunks, self._shape), axis=0)
+                    key = key_template % (starts[0], stops[0], starts[1], stops[1], starts[2], stops[2])
+
+                    while True:  # Get a chunk, retry until getting it
+                        if not self.is_running():
+                            return  # Terminate
+                        chunk_data = self._client.get(key)
+                        if chunk_data is not None:
+                            if self._delete:
+                                self._client.delete(key, noreply=True)
+                            break
+
+                        time.sleep(self.WAIT_TIME)
+                    self.data[starts[0]:stops[0], starts[1]:stops[1], starts[2]:stops[2]] = chunk_data
+
+                    self.loaded_index = min(length, (d0_chunk_index + 1) * self._chunks[0] - 1)
+                    self._progress(self.loaded_index, length)
 
 
 if __name__ == "__main__":
@@ -1770,7 +1816,7 @@ if __name__ == "__main__":
                 future_result = submitToQtMainThread(window.updateSlices)
 
     if args.memcached:
-        loader = MemcachedLoadingThread(uid=args.source, progress=progress)
+        loader = MemcachedLoadingThread(uid=args.source, progress=progress, delete=True)
 
     else:
         url = DataUrl(args.source)
@@ -1790,4 +1836,7 @@ if __name__ == "__main__":
     #window.setResolution(50*10e-6, 50*10e-6, 50*10e-6)
     window.setData(loader.data)
 
-    sys.exit(app.exec_())
+    ret = app.exec_()
+    print('Stop loader')
+    loader.stop()
+    sys.exit(ret)
