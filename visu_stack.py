@@ -1676,7 +1676,7 @@ class H5LoadingThread(BaseLoader):
         self.loaded_index = 0
         with h5py.File(self._filename, 'r') as f:
             dset = f[self._dataset_name]
-            self.data = numpy.full(dset.shape, numpy.nan, dtype=dset.dtype)
+            self.data = numpy.zeros(dset.shape, dtype=dset.dtype)
 
         super().__init__()
 
@@ -1693,6 +1693,24 @@ class H5LoadingThread(BaseLoader):
                 self._progress(self.loaded_index, length)
                 # Give a chance for main thread to run as h5py do not release the GIL
                 time.sleep(0.01)
+
+
+class H5Loader(BaseLoader):
+    """Access HDF5 file"""
+
+    def __init__(self, filename, dataset_name, progress=None):
+        self._filename = filename
+        self._dataset_name = dataset_name
+        self._progress = progress
+        self._f = h5py.File(self._filename, 'r')
+        self.data = self._f[self._dataset_name]
+
+        self.loaded_index = len(self.data)
+
+        super().__init__()
+
+    def start(self):
+        pass
 
 
 class MemcachedLoadingThread(BaseLoader):
@@ -1823,7 +1841,7 @@ if __name__ == "__main__":
         if url.file_path().endswith('.npy'):
             loader = NumpyLoader(url.file_path())
         else:
-            loader = H5LoadingThread(
+            loader = H5Loader(  # H5LoadingThread(
                 filename=url.file_path(),
                 dataset_name=url.data_path(),
                 progress=progress)

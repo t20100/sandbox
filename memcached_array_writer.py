@@ -33,11 +33,33 @@ import math
 
 import h5py
 import numpy
+import bloscpack
 from pymemcache.client.base import Client
 import silx.io
 
 
 class NumpySerde(object):
+    """Numpy array serializer"""
+
+    def serialize(key, value):
+        if isinstance(value, numpy.ndarray):
+            with io.BytesIO() as buffer:
+                numpy.save(buffer, value)
+                return buffer.getvalue(), 2
+        else:
+            return value, 1
+
+    def deserialize(key, value, flags):
+        if flags == 1:
+            return value
+        elif flags == 2:
+            with io.BytesIO(value) as buffer:
+                return numpy.load(buffer)
+        else:
+            raise RuntimeException("Unsupported serialization flags")
+
+
+class NumpyBloscpackSerde(object):
     """Numpy array serializer"""
 
     def serialize(key, value):
@@ -132,5 +154,5 @@ if __name__ == "__main__":
     url = silx.io.url.DataUrl(sys.argv[1])
     with silx.io.open(url.path()) as dset:
         #for key in slice_sender(client, dset):
-        for key in chunk_sender(client, dset, chunks=[1, 2048, 2048]):
+        for key in chunk_sender(client, dset, chunks=[1, 512, 512]):
             print('loaded', key)
