@@ -963,6 +963,7 @@ class SlicePlot(plot.PlotWidget):
         self.setDataBackgroundColor('white')
         self.setKeepDataAspectRatio(True)
         self.setInteractiveMode('pan')
+        self.setAxesMargins(0.15, 0.1, 0.01, 0.15)
 
         self.__model = None
         self.setModel(model)
