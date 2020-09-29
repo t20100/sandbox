@@ -1,6 +1,32 @@
 import numpy
 
+from silx.gui.plot import PlotWidget
 from silx.gui.plot import items
+
+
+# silx.gui.plot.PlotWidget
+
+# TODO support for log scale?
+# by providing a position or by giving the max and/or min.
+def getPixelSizeInData(self, axis='left'):
+    assert axis in ('left', 'right')
+
+    xaxis = self.getXAxis()
+    yaxis = self.getYAxis(axis)
+
+    if (xaxis.getScale() != items.Axis.LINEAR or
+                yaxis.getScale() != items.Axis.LINEAR):
+        raise RuntimeError("Only available with linear axes")
+
+    xmin, xmax = xaxis.getLimits()
+    ymin, ymax = yaxis.getLimits()
+    width, height = self.getPlotBoundsInPixels()[2:]
+    return (xmax - xmin) / width, (ymax - ymin) / height
+
+
+# Monkey-patching
+PlotWidget.getPixelSizeInData = getPixelSizeInData
+
 
 # silx.gui.plot.items.core class Items
 
@@ -27,6 +53,9 @@ def getVisibleExtent(self):
     else:
         return xmin, xmax, ymin, ymax
 
+# Monkey-patching
+items.Item.getVisibleExtent = getVisibleExtent
+
 
 # silx.gui.plot.items.image class ImageBase
 
@@ -50,8 +79,5 @@ def getVisibleSlices(self):
     return (slice(int((ymin - oy) / sy), int(numpy.ceil((ymax - oy) / sy))),
             slice(int((xmin - ox) / sx), int(numpy.ceil((xmax - ox) / sx))))
 
-
 # Monkey-patching
-items.Item.getVisibleExtent = getVisibleExtent
 items.ImageBase.getVisibleSlices = getVisibleSlices
-
