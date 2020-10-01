@@ -9,6 +9,14 @@ from silx.gui.plot import items
 # TODO support for log scale?
 # by providing a position or by giving the max and/or min.
 def getPixelSizeInData(self, axis='left'):
+    """Returns the size of a pixel in plot data coordinates
+
+    :param str axis: Y axis to use in: 'left' (default), 'right'
+    :return:
+        Size (width, height) of a Qt pixel in data coordinates.
+        Size is None if it cannot be computed
+    :rtype: Union[List[float],None]
+    """
     assert axis in ('left', 'right')
 
     xaxis = self.getXAxis()
@@ -21,7 +29,10 @@ def getPixelSizeInData(self, axis='left'):
     xmin, xmax = xaxis.getLimits()
     ymin, ymax = yaxis.getLimits()
     width, height = self.getPlotBoundsInPixels()[2:]
-    return (xmax - xmin) / width, (ymax - ymin) / height
+    if width == 0 or height == 0:
+        return None
+    else:
+        return (xmax - xmin) / width, (ymax - ymin) / height
 
 
 # Monkey-patching
@@ -40,7 +51,7 @@ def getVisibleExtent(self):
     """
     plot = self.getPlot()
     bounds = self.getBounds()
-    if plot is None or bounds is None:
+    if plot is None or bounds is None or not self.isVisible():
         return None
 
     xmin, xmax = numpy.clip(bounds[:2], *plot.getXAxis().getLimits())
