@@ -1309,7 +1309,7 @@ class VolumeView(qt.QMainWindow):
 
         action = plot_actions.control.ResetZoomAction(
             parent=self, plot=self._axialPlot)
-        action.triggered.connect(self.__resetZoom)
+        action.triggered.connect(self.resetZoom)
         toolbar.addAction(action)
 
         toolbar.addAction(plot_actions.control.ColormapAction(
@@ -1325,7 +1325,7 @@ class VolumeView(qt.QMainWindow):
         for plot in (self._frontPlot, self._sidePlot):
             plot.setInteractiveMode(source=source, **mode)
 
-    def __resetZoom(self, checked):
+    def resetZoom(self, *args):
         self._frontPlot.resetZoom()
         self._sidePlot.resetZoom()
         self._axialPlot.resetZoom()
@@ -1855,6 +1855,7 @@ if __name__ == "__main__":
     window.setResolution(50*10e-5, 50*10e-5, 50*10e-5)
     #window.setResolution(50*10e-6, 50*10e-6, 50*10e-6)
     window.setData(loader.data)
+    window.resetZoom()
 
     ret = app.exec_()
     print('Stop loader')
