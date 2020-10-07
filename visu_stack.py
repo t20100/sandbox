@@ -448,7 +448,7 @@ class ROI3D(qt.QObject):
         if visible != self.__visible:
             self.__visible = visible
             for rect in self.__rois.values():
-                rect._setVisible(visible)
+                rect.setVisible(visible)
             self.sigItemChanged.emit(items.ItemChangedType.VISIBLE)
 
     def getScan(self):
@@ -1126,7 +1126,7 @@ class VolumeView(qt.QMainWindow):
 
         # Shared colormap
         self._colormap = Colormap()
-        self._colormap.setVRange(0., 4.)  # TODO make autoscale according to whole stack, not image
+        self._colormap.setVRange(-0.05, 0.05)  # TODO make autoscale according to whole stack, not image
 
         # Create ROI action
         self._createPolygonROIAction = qt.QAction()
@@ -1328,6 +1328,7 @@ class VolumeView(qt.QMainWindow):
     def __resetZoom(self, checked):
         self._frontPlot.resetZoom()
         self._sidePlot.resetZoom()
+        self._axialPlot.resetZoom()
 
     def __lineMarkerChanged(self, event):
         if self.__handleMarker and event is items.ItemChangedType.POSITION:
