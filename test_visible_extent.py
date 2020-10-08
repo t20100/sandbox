@@ -26,28 +26,6 @@ class Image(items.ImageData):
             self.__previousVisibleSlices = slices
             self.sigVisibleSlicesChanged.emit()
 
-    def getVisibleChunkSlices(self):
-        """Returns the array slicing of the image aligned to chunks.
-
-        This is inclusive in that partly visible array elements are included.
-
-        :returns: (dim0 slice, dim1 slice)
-        :rtype: List[slice]
-        """
-        yslice, xslice = self.getVisibleSlices()
-
-        emptySlice = slice(0)
-        if yslice == emptySlice or xslice == emptySlice:
-            return emptySlice, emptySlice  # Nothing to display
-
-        height, width = self.getChunkShape()
-        ystart, ystop = yslice.start, yslice.stop
-        xstart, xstop = xslice.start, xslice.stop
-        return (slice(height * (ystart // height),
-                      height * int(numpy.ceil(ystop / height))),
-                slice(width * (xstart // width),
-                      width * int(numpy.ceil((xstop / width)))))
-
     def getVisibleSlices(self):
         """Returns the array slicing of the image part inside the plot area.
 
@@ -84,6 +62,28 @@ class Image(items.ImageData):
             self.__chunkShape = shape
             self.__visibleExtentChanged()
 
+    def getVisibleChunkSlices(self):
+        """Returns the array slicing of the image aligned to chunks.
+
+        This is inclusive in that partly visible array elements are included.
+
+        :returns: (dim0 slice, dim1 slice)
+        :rtype: List[slice]
+        """
+        yslice, xslice = self.getVisibleSlices()
+
+        emptySlice = slice(0)
+        if yslice == emptySlice or xslice == emptySlice:
+            return emptySlice, emptySlice  # Nothing to display
+
+        height, width = self.getChunkShape()
+        ystart, ystop = yslice.start, yslice.stop
+        xstart, xstop = xslice.start, xslice.stop
+        return (slice(height * (ystart // height),
+                      height * int(numpy.ceil(ystop / height))),
+                slice(width * (xstart // width),
+                      width * int(numpy.ceil((xstop / width)))))
+
 
 if __name__ == "__main__":
     from silx.gui import qt
@@ -94,6 +94,7 @@ if __name__ == "__main__":
 
     app = qt.QApplication([])
     w = PlotWindow(backend='gl')
+    w.setKeepDataAspectRatio(True)
     item = Image()
     item._setVisibleExtentTracking(True)
 
@@ -108,9 +109,11 @@ if __name__ == "__main__":
     item.sigVisibleSlicesChanged.connect(cb)
     #item._sigVisibleExtentChanged.connect(cb)
 
+    item.setScale((1, 2))
     item.setData(numpy.arange(100).reshape(10, 10))
     item.setChunkShape((5, 5))
     #item.setData(numpy.arange(1024**2, dtype='float32').reshape(1024, 1024))
     w.addItem(item)
+    w.resetZoom()
     w.show()
     app.exec_()
