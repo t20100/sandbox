@@ -1,5 +1,6 @@
 import numpy
 
+from silx.gui import qt
 from silx.gui.plot import PlotWidget
 from silx.gui.plot import items
 
@@ -37,35 +38,6 @@ def getPixelSizeInData(self, axis='left'):
 
 # Monkey-patching
 PlotWidget.getPixelSizeInData = getPixelSizeInData
-
-
-# silx.gui.plot.items.core class Items
-
-def getVisibleExtent(self):
-    """Returns visible extent of the item bounding box in the plot area.
-
-    :returns:
-        (xmin, xmax, ymin, ymax) in data coordinates of the visible area or 
-        None if item is not visible in the plot area.
-    :rtype: Union[List[float],None]
-    """
-    plot = self.getPlot()
-    bounds = self.getBounds()
-    if plot is None or bounds is None or not self.isVisible():
-        return None
-
-    xmin, xmax = numpy.clip(bounds[:2], *plot.getXAxis().getLimits())
-    yaxis = plot.getYAxis(
-        self.getYAxis() if isinstance(self, items.YAxisMixIn) else 'left')
-    ymin, ymax = numpy.clip(bounds[2:], *yaxis.getLimits())
-
-    if xmin == xmax or ymin == ymax:  # Outside the plot area
-        return None
-    else:
-        return xmin, xmax, ymin, ymax
-
-# Monkey-patching
-items.Item.getVisibleExtent = getVisibleExtent
 
 
 # silx.gui.plot.items.image class ImageBase

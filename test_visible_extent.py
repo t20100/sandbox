@@ -1,46 +1,88 @@
+from typing import Tuple
+
 from silx.gui import qt
 from silx.gui.plot import items, PlotWindow
 
-import os
-import sys
-sys.path.insert(0, os.path.dirname(__file__))
-import silx_monkey_patch
+#import os
+#import sys
+#sys.path.insert(0, os.path.dirname(__file__))
+#import silx_monkey_patch
 
+class Image(items.ImageData):
 
-class TestItem(items.ImageData):
+    sigVisibleSlicesChanged = qt.Signal()
+    """Signal emitted when the visible slices of the array has changed."""
 
-    sigVisibleExtentChanged = qt.Signal()
+    def __init__(self):
+        self.__previousVisibleSlices = slice(0), slice(0)
+        self.__chunkShape = 1, 1
+        super().__init__()
+        self._sigVisibleExtentChanged.connect(self.__visibleExtentChanged)
 
-    def _setPlot(self, plot):
-        super()._setPlot(plot)
+    def __visibleExtentChanged(self):
+        """Emit sigVisibleSlicesChanged when slicing has changed."""
+        slices = self.getVisibleChunkSlices()
+        if slices != self.__previousVisibleSlices:
+            self.__previousVisibleSlices = slices
+            self.sigVisibleSlicesChanged.emit()
 
-        xaxis = plot.getXAxis()
-        xaxis.sigLimitsChanged.connect(self._limitsChanged)
-        xaxis.sigScaleChanged.connect(self._scaleChanged)
+    def getVisibleChunkSlices(self):
+        """Returns the array slicing of the image aligned to chunks.
 
-        yaxis = plot.getYAxis(
-            self.getYAxis() if isinstance(self, items.YAxisMixIn) else 'left')
-        yaxis.sigLimitsChanged.connect(self._limitsChanged)
-        yaxis.sigScaleChanged.connect(self._scaleChanged)
+        This is inclusive in that partly visible array elements are included.
 
-        self.__previousVisibleExtent = self.getVisibleExtent()
-        self.sigVisibleExtentChanged.emit()
+        :returns: (dim0 slice, dim1 slice)
+        :rtype: List[slice]
+        """
+        yslice, xslice = self.getVisibleSlices()
 
-    def _limitsChanged(self, begin, end):
-        extent = item.getVisibleExtent()
-        if extent != self.__previousVisibleExtent:
-            self.__previousVisibleExtent = extent
-            self.sigVisibleExtentChanged.emit()
+        emptySlice = slice(0)
+        if yslice == emptySlice or xslice == emptySlice:
+            return emptySlice, emptySlice  # Nothing to display
 
-    def _scaleChanged(self, scale):
-        pass  # TODO ?
+        height, width = self.getChunkShape()
+        ystart, ystop = yslice.start, yslice.stop
+        xstart, xstop = xslice.start, xslice.stop
+        return (slice(height * (ystart // height),
+                      height * int(numpy.ceil(ystop / height))),
+                slice(width * (xstart // width),
+                      width * int(numpy.ceil((xstop / width)))))
 
-    def _update(self, backend):
-        super()._update(backend)
-        width, height = item.getPlot().getPixelSizeInData()
-        print('Pixel size', width, height)
-        sx, sy = item.getScale()
-        print('Array size', width / sx, height / sy)
+    def getVisibleSlices(self):
+        """Returns the array slicing of the image part inside the plot area.
+
+        This is inclusive in that partly visible array elements are included.
+
+        :returns: (dim0 slice, dim1 slice)
+        :rtype: List[slice]
+        """
+        extent = self.getVisibleExtent()
+        if extent is None:
+            return slice(0), slice(0)  # Empty slicing
+
+        xmin, xmax, ymin, ymax = extent
+
+        ox, oy = self.getOrigin()
+        sx, sy = self.getScale()
+
+        return (slice(int((ymin - oy) / sy), int(numpy.ceil((ymax - oy) / sy))),
+                slice(int((xmin - ox) / sx), int(numpy.ceil((xmax - ox) / sx))))
+
+    def getChunkShape(self) -> Tuple[float]:
+        """Returns current chunk shape (rows, columns).
+
+        :rtype: List[float]
+        """
+        return self.__chunkShape
+
+    def setChunkShape(self, shape: Tuple[float]):
+        """Set the chunk shape (rows, columns).
+
+        :param List[float] shape:
+        """
+        if shape != self.__chunkShape:
+            self.__chunkShape = shape
+            self.__visibleExtentChanged()
 
 
 if __name__ == "__main__":
@@ -52,14 +94,23 @@ if __name__ == "__main__":
 
     app = qt.QApplication([])
     w = PlotWindow(backend='gl')
-    item = TestItem()
+    item = Image()
+    item._setVisibleExtentTracking(True)
 
     def cb():
-        print('Extent', item.getVisibleExtent())
-        print('Slices', item.getVisibleSlices())
-    item.sigVisibleExtentChanged.connect(cb)
+        print('Chunked slices', item.getVisibleChunkSlices())
+        #print('Extent', item.getVisibleExtent())
+        #print('Slices', item.getVisibleSlices())
+        #width, height = item.getPlot().getPixelSizeInData()
+        #print('Pixel size', width, height)
+        #sx, sy = item.getScale()
+        #print('Array size', width / sx, height / sy)
+    item.sigVisibleSlicesChanged.connect(cb)
+    #item._sigVisibleExtentChanged.connect(cb)
 
-    item.setData(numpy.arange(100, dtype='float16').reshape(10, 10))
+    item.setData(numpy.arange(100).reshape(10, 10))
+    item.setChunkShape((5, 5))
+    #item.setData(numpy.arange(1024**2, dtype='float32').reshape(1024, 1024))
     w.addItem(item)
     w.show()
     app.exec_()
