@@ -87,7 +87,7 @@ def slice_sender(client, dset):
     :param dset: Array-like of data
     """
     ndigits = math.floor(math.log10(len(dset))) + 1
-    template = 'slice%%0%dd' % ndigits
+    template = "slice%%0%dd" % ndigits
     for index, slice_ in enumerate(dset):
         key = template % index
         client.set(key, slice_)
@@ -117,29 +117,40 @@ def chunk_sender(client, dset, uid="data", chunks=None):
         As many dimension as the dataset.
         If None, a single chunk is used.
     """
-    template = uid + '[' + ','.join(['%d:%d'] * len(dset.shape)) + ']'
+    template = uid + "[" + ",".join(["%d:%d"] * len(dset.shape)) + "]"
 
     if chunks is None:
         chunks = dset.shape
 
     # Write header
-    client.set(uid, json.dumps({
-        "version": 1,
-        "shape": dset.shape,
-        "dtype": dset.dtype.str,
-        "chunks": chunks,
-        }))
+    client.set(
+        uid,
+        json.dumps(
+            {
+                "version": 1,
+                "shape": dset.shape,
+                "dtype": dset.dtype.str,
+                "chunks": chunks,
+            }
+        ),
+    )
 
-    nchunks = numpy.ceil(numpy.array(dset.shape) / numpy.array(chunks)).astype(numpy.int)
+    nchunks = numpy.ceil(numpy.array(dset.shape) / numpy.array(chunks)).astype(
+        numpy.int
+    )
     for index in range(numpy.prod(nchunks)):
         slices = []
-        for nchunk_dim, chunk_size, dset_size in zip(reversed(nchunks), reversed(chunks), reversed(dset.shape)):
+        for nchunk_dim, chunk_size, dset_size in zip(
+            reversed(nchunks), reversed(chunks), reversed(dset.shape)
+        ):
             start = (index % nchunk_dim) * chunk_size
             stop = min(start + chunk_size, dset_size)
             slices.insert(0, slice(start, stop))
             index = index // nchunk_dim
 
-        key = template % tuple(itertools.chain.from_iterable((s.start, s.stop) for s in slices))
+        key = template % tuple(
+            itertools.chain.from_iterable((s.start, s.stop) for s in slices)
+        )
         client.set(key, dset[tuple(slices)])
         yield key
 
@@ -147,12 +158,12 @@ def chunk_sender(client, dset, uid="data", chunks=None):
 if __name__ == "__main__":
     import sys
 
-    SERVER = 'localhost', 11211
+    SERVER = "localhost", 11211
 
     client = Client(SERVER, serde=NumpySerde)
 
     url = silx.io.url.DataUrl(sys.argv[1])
     with silx.io.open(url.path()) as dset:
-        #for key in slice_sender(client, dset):
+        # for key in slice_sender(client, dset):
         for key in chunk_sender(client, dset, chunks=[1, 512, 512]):
-            print('loaded', key)
+            print("loaded", key)

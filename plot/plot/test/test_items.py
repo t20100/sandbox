@@ -50,7 +50,7 @@ class TestPlotItems(unittest.TestCase):
 
     def testImage(self):
         """Check existence of class"""
-        data = numpy.arange(100.).reshape(10, -1)
+        data = numpy.arange(100.0).reshape(10, -1)
         image = items.Image(data)  # noqa
 
     def testCurve(self):
@@ -81,11 +81,12 @@ class TestPlotItemNotifyProperty(unittest.TestCase):
         Init property, register listener, set the same value,
         set a different value, unregister listener.
         """
+
         class TestItem(items.PlotItem):
-            tester = items.notifyProperty('_tester', doc="""Test""")
+            tester = items.notifyProperty("_tester", doc="""Test""")
 
         testItem = TestItem()
-        self.assertEqual(TestItem.tester.__doc__, 'Test')
+        self.assertEqual(TestItem.tester.__doc__, "Test")
 
         testItem.tester = 1
         self.assertEqual(testItem.tester, 1)
@@ -96,10 +97,10 @@ class TestPlotItemNotifyProperty(unittest.TestCase):
         testItem.removeListener(self.listener)
 
         self.assertEqual(len(self.notifications), 2)
-        self.assertEqual(self.notifications[0],
-                         (testItem, 'set', {'attr': 'tester', 'value': 2}))
-        self.assertEqual(self.notifications[1],
-                         (testItem, 'needRedisplay', {}))
+        self.assertEqual(
+            self.notifications[0], (testItem, "set", {"attr": "tester", "value": 2})
+        )
+        self.assertEqual(self.notifications[1], (testItem, "needRedisplay", {}))
 
     def testNotifyPropertyWithType(self):
         """Property with type casting with notification.
@@ -107,13 +108,13 @@ class TestPlotItemNotifyProperty(unittest.TestCase):
         Init property, register listener, set the same value,
         set a different value, unregister listener.
         """
+
         class TestItem(items.PlotItem):
-            tester = items.notifyProperty(
-                '_tester', str, doc="""Test""")
+            tester = items.notifyProperty("_tester", str, doc="""Test""")
 
         testItem = TestItem()
         testItem.tester = 1
-        self.assertEqual(testItem.tester, '1')
+        self.assertEqual(testItem.tester, "1")
 
         testItem.addListener(self.listener)
         testItem.tester = 1  # No modification = no notification
@@ -121,19 +122,18 @@ class TestPlotItemNotifyProperty(unittest.TestCase):
         testItem.removeListener(self.listener)
 
         self.assertEqual(len(self.notifications), 2)
-        self.assertEqual(self.notifications[0],
-                         (testItem, 'set', {'attr': 'tester', 'value': '2'}))
-        self.assertEqual(self.notifications[1],
-                         (testItem, 'needRedisplay', {}))
+        self.assertEqual(
+            self.notifications[0], (testItem, "set", {"attr": "tester", "value": "2"})
+        )
+        self.assertEqual(self.notifications[1], (testItem, "needRedisplay", {}))
 
 
 def suite():
     testSuite = unittest.TestSuite()
     for testClass in (TestPlotItems, TestPlotItemNotifyProperty):
-        testSuite.addTest(
-            unittest.defaultTestLoader.loadTestsFromTestCase(testClass))
+        testSuite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(testClass))
     return testSuite
 
 
-if __name__ == '__main__':
-    unittest.main(defaultTest='suite')
+if __name__ == "__main__":
+    unittest.main(defaultTest="suite")

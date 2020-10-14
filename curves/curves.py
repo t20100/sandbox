@@ -33,7 +33,8 @@ __date__ = "30/05/2017"
 
 import base64, sys
 import os
-os.environ['TANGO_HOST'] = 'nela:20000'
+
+os.environ["TANGO_HOST"] = "nela:20000"
 
 import PyTango
 from XSDataBioSaxsv1_0 import XSDataResultBioSaxsHPLCv1_0
@@ -62,9 +63,11 @@ def xsDataToArray(_xsdata):
         elif strCoding == "base16":
             decData = base64.b16decode(encData)
         else:
-            print("Unable to recognize the encoding of the data !!!"
-                  "got %s, expected base64, base32 or base16,"
-                  "I assume it is base64 " % strCoding)
+            print(
+                "Unable to recognize the encoding of the data !!!"
+                "got %s, expected base64, base32 or base16,"
+                "I assume it is base64 " % strCoding
+            )
             decData = base64.b64decode(encData)
     else:
         print("No coding provided, I assume it is base64 ")
@@ -73,8 +76,7 @@ def xsDataToArray(_xsdata):
     try:
         matIn = numpy.fromstring(decData, dtype=_xsdata.getDtype())
     except Exception:
-        matIn = numpy.fromstring(
-            decData, dtype=numpy.dtype(str(_xsdata.getDtype())))
+        matIn = numpy.fromstring(decData, dtype=numpy.dtype(str(_xsdata.getDtype())))
     arrayOut = matIn.reshape(shape)
     # Enforce little Endianness
     if sys.byteorder == "big":
@@ -91,10 +93,10 @@ class CB(object):
     def push_event(self, event):
         if event.attr_value is not None:
             if event.attr_value.name.endswith("jobSuccess"):
-                print('jobSuccess')
+                print("jobSuccess")
                 # Get curve
                 jobid = event.attr_value.value  # from event
-                print('jobid', jobid)
+                print("jobid", jobid)
                 x = self._device.getJobOutput(jobid)
                 xsd = XSDataResultBioSaxsHPLCv1_0.parseString(x)
                 if not self._init and xsd.dataQ is not None:
@@ -109,7 +111,7 @@ class CB(object):
                 # err = xsDataToArray(xsd.dataStdErr)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from silx.gui import qt
 
     app = qt.QApplication([])
@@ -124,6 +126,6 @@ if __name__ == '__main__':
     device.subscribe_event("jobSuccess", PyTango.EventType.CHANGE_EVENT, cb, [], True)
     # device.subscribe_event("jobFailure", PyTango.EventType.CHANGE_EVENT, cb, [], True)
     # device.subscribe_event("statisticsCollected", PyTango.EventType.CHANGE_EVENT, cb, [], True)
-    print('init done')
+    print("init done")
 
     app.exec_()

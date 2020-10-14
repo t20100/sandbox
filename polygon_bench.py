@@ -53,19 +53,18 @@ FILL_FUNCTIONS = {}
 try:
     from silx.image.shapes import polygon_fill_mask as silx_polygon_fill
 except ImportError:
-    _logger.warning(
-        'silx polygon fill not found, not included in benchmark')
+    _logger.warning("silx polygon fill not found, not included in benchmark")
 else:
-    FILL_FUNCTIONS['silx'] = silx_polygon_fill
+    FILL_FUNCTIONS["silx"] = silx_polygon_fill
 
 
 # skimage
 try:
     from skimage.draw import polygon as sk_polygon
 except ImportError:
-    _logger.warning(
-        'scikit-image polygon fill not found, not included in benchmark')
+    _logger.warning("scikit-image polygon fill not found, not included in benchmark")
 else:
+
     def skimage_polygon_fill(vertices, mask_shape):
         """Polygon filling using sci-kit image"""
         vertices = numpy.asarray(vertices)
@@ -75,37 +74,39 @@ else:
             mask[y, x] = True
         return mask
 
-    FILL_FUNCTIONS['skimage'] = skimage_polygon_fill
+    FILL_FUNCTIONS["skimage"] = skimage_polygon_fill
 
 
 # PyMca5
 try:
     from PyMca5.PyMcaGraph.ctools import pnpoly as pymca_polygon
 except ImportError:
-    _logger.warning('PyMca5 polygon fill not found, not included in benchmark')
+    _logger.warning("PyMca5 polygon fill not found, not included in benchmark")
 else:
+
     def pymca_polygon_fill(vertices, mask_shape):
         """Polygon filling using PyMca"""
         points = numpy.zeros((mask_shape[0] * mask_shape[1], 2))
-        x, y = numpy.meshgrid(numpy.arange(mask_shape[1]),
-                              numpy.arange(mask_shape[0]))
+        x, y = numpy.meshgrid(numpy.arange(mask_shape[1]), numpy.arange(mask_shape[0]))
         x.shape = -1
         y.shape = -1
         points[:, 0] = x
         points[:, 1] = y
         return pymca_polygon(vertices, points).reshape(mask_shape)
 
-    FILL_FUNCTIONS['pymca5'] = pymca_polygon_fill
+    FILL_FUNCTIONS["pymca5"] = pymca_polygon_fill
 
 
 def main(argv=None):
     """Run the benchmarks of polygon filling"""
 
     # Test by crossing different number of corners and different shapes
-    test_params = [(nbvert, size, polygon_subpart)
-                   for nbvert in (10, 50, 100)
-                   for polygon_subpart in (1, 2, 4)
-                   for size in (32, 64, 128, 256, 512, 1024, 2048, 4096)]
+    test_params = [
+        (nbvert, size, polygon_subpart)
+        for nbvert in (10, 50, 100)
+        for polygon_subpart in (1, 2, 4)
+        for size in (32, 64, 128, 256, 512, 1024, 2048, 4096)
+    ]
 
     # Store vertices and size of each test
     tests = []
@@ -113,10 +114,13 @@ def main(argv=None):
     timings = dict((key, []) for key in FILL_FUNCTIONS)
 
     for nbvertices, size, polygon_subpart in test_params:
-        _logger.info('Test with %d vertices and mask size %d, subpart %d',
-                     nbvertices, size, polygon_subpart)
-        vertices = numpy.random.randint(
-            0, size // polygon_subpart, 2 * nbvertices)
+        _logger.info(
+            "Test with %d vertices and mask size %d, subpart %d",
+            nbvertices,
+            size,
+            polygon_subpart,
+        )
+        vertices = numpy.random.randint(0, size // polygon_subpart, 2 * nbvertices)
         vertices = vertices.astype(numpy.float32).reshape(-1, 2)
 
         tests.append((vertices, size))
@@ -126,7 +130,7 @@ def main(argv=None):
             t0 = time.time()
             mask = polygon_fill(vertices, (size, size))
             t1 = time.time()
-            _logger.info('%s took %.3fs', name, t1 - t0)
+            _logger.info("%s took %.3fs", name, t1 - t0)
             timings[name].append(t1 - t0)
             results[name] = mask
 
@@ -137,18 +141,22 @@ def main(argv=None):
         #     _logger.info('%s vs %s differences: %d',
         #                  name_a, name_b, differences)
 
-    _logger.info('Results for: ' + ', '.join(name for name in timings))
+    _logger.info("Results for: " + ", ".join(name for name in timings))
     for index in range(len(tests)):
         _logger.info(
-            'nbvert:%d size:%d: ' % (len(tests[index][0]), tests[index][1]) +
-            ', '.join('%.3fs' % times[index] for times in timings.values()))
-    _logger.info('Overall: Min, Mean, Median, Max')
+            "nbvert:%d size:%d: " % (len(tests[index][0]), tests[index][1])
+            + ", ".join("%.3fs" % times[index] for times in timings.values())
+        )
+    _logger.info("Overall: Min, Mean, Median, Max")
     for name, times in timings.items():
-        _logger.info('%s: %f, %f, %f, %f', name,
-                     min(times),
-                     numpy.mean(times),
-                     numpy.median(times),
-                     max(times))
+        _logger.info(
+            "%s: %f, %f, %f, %f",
+            name,
+            min(times),
+            numpy.mean(times),
+            numpy.median(times),
+            max(times),
+        )
 
     for name, times in timings.items():
         plt.plot(times, label=name)
@@ -157,13 +165,15 @@ def main(argv=None):
         """3 Conditions:
         - mask size (fastest variation): [32**2 - 4k**2],
         - mask size / polygon size: (1, 2, 4),
-        - nb vertices (slowest variation): (10, 50, 100)""")
-    plt.xlabel('test cases: mask size x polygon ratio x nb vertices')
-    plt.ylabel('time (seconds)')
-    plt.yscale('log')
+        - nb vertices (slowest variation): (10, 50, 100)"""
+    )
+    plt.xlabel("test cases: mask size x polygon ratio x nb vertices")
+    plt.ylabel("time (seconds)")
+    plt.yscale("log")
     plt.show()
 
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main(sys.argv))

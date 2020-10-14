@@ -82,8 +82,7 @@ class Notifier(object):
         if listener_info not in self._listeners[event]:
             self._listeners[event].append(listener_info)
         else:
-            logger.warning(
-                'Ignoring addition of an already registered listener')
+            logger.warning("Ignoring addition of an already registered listener")
 
     def removeListener(self, listener, event=None):
         """Remove a previously registered listener.
@@ -100,8 +99,7 @@ class Notifier(object):
             try:
                 listeners.remove(listener_info)
             except ValueError:
-                logger.warning(
-                    'Trying to remove a listener that is not registered')
+                logger.warning("Trying to remove a listener that is not registered")
 
     def notify(self, source=None, event=None, **kwargs):
         """Notify all listeners with the given parameters.

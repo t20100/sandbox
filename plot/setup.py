@@ -40,28 +40,30 @@ PROJECT = "plot"
 cmdclass = {}
 
 
-classifiers = ["Development Status :: 1 - Planning",
-               "Environment :: Console",
-               "Environment :: MacOS X",
-               "Environment :: Win32 (MS Windows)",
-               "Environment :: X11 Applications :: Qt",
-               "Intended Audience :: Education",
-               "Intended Audience :: Science/Research",
-               "License :: OSI Approved :: MIT License",
-               "Natural Language :: English",
-               "Operating System :: Microsoft :: Windows",
-               "Operating System :: POSIX",
-               "Programming Language :: Python :: 2",
-               "Programming Language :: Python :: 3",
-               "Topic :: Software Development :: Libraries :: Python Modules",
-               ]
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "Environment :: Console",
+    "Environment :: MacOS X",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 2",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 
 
 # ############################# #
 # numpy.distutils Configuration #
 # ############################# #
 
-def configuration(parent_package='', top_path=None):
+
+def configuration(parent_package="", top_path=None):
     """Recursive construction of package info to be used in setup().
 
     See http://docs.scipy.org/doc/numpy/reference/distutils.html#numpy.distutils.misc_util.Configuration
@@ -71,7 +73,8 @@ def configuration(parent_package='', top_path=None):
         ignore_setup_xxx_py=True,
         assume_default_configuration=True,
         delegate_options_to_subpackages=True,
-        quiet=True)
+        quiet=True,
+    )
     config.add_subpackage(PROJECT)
     return config
 
@@ -90,7 +93,7 @@ setup_requires = ["numpy"]
 
 setup_kwargs.update(
     name=PROJECT,
-    version='0.0.1',
+    version="0.0.1",
     url="https://github.com/t20100/sandbox/plot",
     author="T. Vincent",
     author_email="thoams.vincent@esrf.fr",
@@ -100,6 +103,6 @@ setup_kwargs.update(
     install_requires=install_requires,
     setup_requires=setup_requires,
     cmdclass=cmdclass,
-    )
+)
 
 setup(**setup_kwargs)

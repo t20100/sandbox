@@ -44,9 +44,10 @@ from silx.gui.plot import Plot1D
 _logger = logging.getLogger(__name__)
 
 
-if hasattr(numpy, 'nanmean'):
+if hasattr(numpy, "nanmean"):
     nanmean = numpy.nanmean
 else:  # Debian 7 support
+
     def nanmean(data, axis=None):
         """Compute mean of none NaN elements
 
@@ -54,7 +55,7 @@ else:  # Debian 7 support
         :param axis: None or the axis index along which to compute the means.
         """
         notNaNMask = numpy.logical_not(numpy.isnan(data))
-        return numpy.nansum(data, axis) / numpy.sum(notNaNMask, axis, dtype='int')
+        return numpy.nansum(data, axis) / numpy.sum(notNaNMask, axis, dtype="int")
 
 
 # TODO make the min/max background work for negative values...
@@ -68,6 +69,7 @@ else:  # Debian 7 support
 # TODO set number of curves displayed
 # TODO matplotlib bad rendering of filled curves regarding edges
 # TODO OO API with setters
+
 
 class CurvesView(qt.QWidget):
     """Widget displaying statistical indicators over many curves
@@ -83,7 +85,7 @@ class CurvesView(qt.QWidget):
         super(CurvesView, self).__init__(parent, f)
 
         self._nbExtraCurves = 1
-        self._currentCurveColor = 0., 0.8, 0., 1.
+        self._currentCurveColor = 0.0, 0.8, 0.0, 1.0
         self._index = -1
         self._x = None
         self._data = None
@@ -92,7 +94,7 @@ class CurvesView(qt.QWidget):
         self._sum = None
         self._count = None
 
-        self._plot = Plot1D() #backend='matplotlib')
+        self._plot = Plot1D()  # backend='matplotlib')
         self._plot.setActiveCurveHandling(False)
 
         layout = qt.QGridLayout(self)
@@ -157,43 +159,50 @@ class CurvesView(qt.QWidget):
         data = self.getData(copy=False)
         currentIndex = self.getCurrentCurveIndex(absolute=True)
 
-        for offset in range(- self._nbExtraCurves,
-                            self._nbExtraCurves + 1):
+        for offset in range(-self._nbExtraCurves, self._nbExtraCurves + 1):
             index = currentIndex + offset
             if offset == 0:
                 continue
 
-            legend = 'N%+d' % offset
-            plot.remove(legend=legend, kind='curve')
+            legend = "N%+d" % offset
+            plot.remove(legend=legend, kind="curve")
 
             if 0 <= index < len(data):
                 distance = abs(offset) / (self._nbExtraCurves + 1)
                 if abs(offset) == 1:  # first curve
-                    linestyle = '-'
+                    linestyle = "-"
                 elif distance < 0.66:
-                    linestyle = '--'
+                    linestyle = "--"
                 else:
-                    linestyle = ':'
+                    linestyle = ":"
                 if offset < 0:
                     color = numpy.array(self._currentCurveColor) * 0.5
                 else:
-                    color = '#FF9900'
+                    color = "#FF9900"
                 plot.addCurve(
-                    self.getXData(), data[index], legend=legend,
+                    self.getXData(),
+                    data[index],
+                    legend=legend,
                     color=color,
                     linestyle=linestyle,
-                    z=100, resetzoom=False)
+                    z=100,
+                    resetzoom=False,
+                )
 
         # Current curve
         if currentIndex < len(data):
             currentCurve = data[currentIndex]
             plot.addCurve(
-                self.getXData(), currentCurve, legend='current',
-                color=self._currentCurveColor, z=101,
+                self.getXData(),
+                currentCurve,
+                legend="current",
+                color=self._currentCurveColor,
+                z=101,
                 linewidth=2,
-                resetzoom=False)
+                resetzoom=False,
+            )
         else:
-            plot.remove(legend='current', kind='curve')
+            plot.remove(legend="current", kind="curve")
 
     def _indexChanged(self, index):
         """Handle spinBox or slider value changed"""
@@ -214,7 +223,7 @@ class CurvesView(qt.QWidget):
             Default: -1 = Lastest curve.
         """
         data = self.getData(copy=False)
-        assert index in (-1, 0) or - len(data) <= index < len(data)
+        assert index in (-1, 0) or -len(data) <= index < len(data)
         self._index = index
 
         if self._index < 0:
@@ -306,27 +315,41 @@ class CurvesView(qt.QWidget):
         z = 1
         maxs = numpy.nanmax(self._data, axis=0)
         plot.addCurve(
-            self.getXData(), maxs, legend='maximum',
-            color='#D0D0D0', fill=True, z=z,
-            linestyle='-',
-            resetzoom=False)
+            self.getXData(),
+            maxs,
+            legend="maximum",
+            color="#D0D0D0",
+            fill=True,
+            z=z,
+            linestyle="-",
+            resetzoom=False,
+        )
 
         z += 1
         mins = numpy.nanmin(self._data, axis=0)
         plot.addCurve(
-            self.getXData(), mins, legend='minimum',
-            color='#FFFFFF', fill=True, z=z,
-            linestyle='-',
-            resetzoom=False)
+            self.getXData(),
+            mins,
+            legend="minimum",
+            color="#FFFFFF",
+            fill=True,
+            z=z,
+            linestyle="-",
+            resetzoom=False,
+        )
 
         z += 1
         means = nanmean(self._data, axis=0)
         plot.addCurve(
-            self.getXData(), means, legend='mean',
-            color='#FFFFFF80',
-            linewidth=2, linestyle='-',
+            self.getXData(),
+            means,
+            legend="mean",
+            color="#FFFFFF80",
+            linewidth=2,
+            linestyle="-",
             z=1000,
-            resetzoom=False)
+            resetzoom=False,
+        )
 
         # Draw current curve
         self._updateCurrentCurve()
@@ -339,13 +362,13 @@ class CurvesView(qt.QWidget):
         self.getPlot().resetZoom()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import glob
     import threading
     import time
 
     # dummy data
-    x = numpy.linspace(0., 10., 1024)
+    x = numpy.linspace(0.0, 10.0, 1024)
     y = numpy.sin(x) + 2
     data = y[numpy.newaxis, :] + numpy.random.normal(0, 0.1, (1024, len(y)))
 
@@ -372,7 +395,7 @@ if __name__ == '__main__':
     thread.start()
 
     app.exec_()
-    print('closing...')
+    print("closing...")
     if thread:
         running = False
         thread.join(2)

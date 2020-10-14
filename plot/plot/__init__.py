@@ -1,6 +1,7 @@
 # coding: utf-8
 
 import logging
+
 logging.basicConfig()
 
 from .backend_mpl import BackendMPL  # noqa

@@ -9,7 +9,7 @@ from silx.gui.plot import items
 
 # TODO support for log scale?
 # by providing a position or by giving the max and/or min.
-def getPixelSizeInData(self, axis='left'):
+def getPixelSizeInData(self, axis="left"):
     """Returns the size of a pixel in plot data coordinates
 
     :param str axis: Y axis to use in: 'left' (default), 'right'
@@ -18,13 +18,12 @@ def getPixelSizeInData(self, axis='left'):
         Size is None if it cannot be computed
     :rtype: Union[List[float],None]
     """
-    assert axis in ('left', 'right')
+    assert axis in ("left", "right")
 
     xaxis = self.getXAxis()
     yaxis = self.getYAxis(axis)
 
-    if (xaxis.getScale() != items.Axis.LINEAR or
-                yaxis.getScale() != items.Axis.LINEAR):
+    if xaxis.getScale() != items.Axis.LINEAR or yaxis.getScale() != items.Axis.LINEAR:
         raise RuntimeError("Only available with linear axes")
 
     xmin, xmax = xaxis.getLimits()
@@ -42,6 +41,7 @@ PlotWidget.getPixelSizeInData = getPixelSizeInData
 
 # silx.gui.plot.items.image class ImageBase
 
+
 def getVisibleSlices(self):
     """Returns the array slicing of the image part inside the plot area.
 
@@ -58,9 +58,12 @@ def getVisibleSlices(self):
 
     ox, oy = self.getOrigin()
     sx, sy = self.getScale()
-    
-    return (slice(int((ymin - oy) / sy), int(numpy.ceil((ymax - oy) / sy))),
-            slice(int((xmin - ox) / sx), int(numpy.ceil((xmax - ox) / sx))))
+
+    return (
+        slice(int((ymin - oy) / sy), int(numpy.ceil((ymax - oy) / sy))),
+        slice(int((xmin - ox) / sx), int(numpy.ceil((xmax - ox) / sx))),
+    )
+
 
 # Monkey-patching
 items.ImageBase.getVisibleSlices = getVisibleSlices

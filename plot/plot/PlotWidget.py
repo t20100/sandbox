@@ -50,9 +50,9 @@ logger = logging.getLogger(__name__)
 # API changes from PyMca:
 # - Remove **kw in methods
 
+
 class PlotWidget(QtGui.QMainWindow):
-    def __init__(self, parent=None,
-                 windowFlags=QtCore.Qt.Widget, backend=None):
+    def __init__(self, parent=None, windowFlags=QtCore.Qt.Widget, backend=None):
         self._invertYAxis = False
         self._curves = OrderedDict()
 
@@ -71,43 +71,64 @@ class PlotWidget(QtGui.QMainWindow):
     # Add
     # - addImage add interpolation
 
-    def addCurve(self, x, y, legend=None, info=None,
-                 replace=False, replot=True,
-                 color=None, symbol=None, linewidth=None, linestyle=None,
-                 xlabel=None, ylabel=None, yaxis=None,
-                 xerror=None, yerror=None, z=1, selectable=True, **kw):
+    def addCurve(
+        self,
+        x,
+        y,
+        legend=None,
+        info=None,
+        replace=False,
+        replot=True,
+        color=None,
+        symbol=None,
+        linewidth=None,
+        linestyle=None,
+        xlabel=None,
+        ylabel=None,
+        yaxis=None,
+        xerror=None,
+        yerror=None,
+        z=1,
+        selectable=True,
+        **kw
+    ):
         if kw:
-            logger.warning(
-                "addCurve extra arguments deprecated")
+            logger.warning("addCurve extra arguments deprecated")
 
         if replace:
-            self.remove(kind='curve')
+            self.remove(kind="curve")
 
         if color is None:
-            color = (0., 0., 0.)  # TODO
+            color = (0.0, 0.0, 0.0)  # TODO
 
-        assert yaxis in ('left', 'right', None)
-        yaxis = 'left' if yaxis in (None, 'left') else 'right'
+        assert yaxis in ("left", "right", None)
+        yaxis = "left" if yaxis in (None, "left") else "right"
 
         # if a curve with the same name exists, remove it
         if legend in self._curves:
             oldCurve = self._curves.pop(legend)
             self._plot.removeItem(oldCurve)
 
-        curve = items.Curve(x, y,
-                            xerror=xerror, yerror=yerror, color=color,
-                            copy=True,
-                            marker=symbol,
-                            linewidth=linewidth,
-                            linestyle=linestyle,
-                            z=z, selectable=selectable)
+        curve = items.Curve(
+            x,
+            y,
+            xerror=xerror,
+            yerror=yerror,
+            color=color,
+            copy=True,
+            marker=symbol,
+            linewidth=linewidth,
+            linestyle=linestyle,
+            z=z,
+            selectable=selectable,
+        )
         curve.info = info
         curve.legend = legend
         curve.xlabel = xlabel
         curve.ylabel = ylabel
         curve.yaxis = yaxis
 
-        if yaxis == 'left':
+        if yaxis == "left":
             self._plot.addItem(curve)
         else:
             self._plot.axes.right.addItem(curve)
@@ -119,24 +140,37 @@ class PlotWidget(QtGui.QMainWindow):
 
         return curve
 
-    def addImage(self, data, legend=None, info=None,
-                 replace=True, replot=True,
-                 xScale=(0., 1.), yScale=(0., 1.), z=0,
-                 selectable=False, draggable=False,
-                 colormap=None, **kw):
+    def addImage(
+        self,
+        data,
+        legend=None,
+        info=None,
+        replace=True,
+        replot=True,
+        xScale=(0.0, 1.0),
+        yScale=(0.0, 1.0),
+        z=0,
+        selectable=False,
+        draggable=False,
+        colormap=None,
+        **kw
+    ):
         if kw:
-            logger.warning(
-                "addImage extra arguments deprecated")
+            logger.warning("addImage extra arguments deprecated")
 
         if replace:
-            self.remove(kind='image')
+            self.remove(kind="image")
 
-        image = items.Image(data, copy=True,
-                            colormap=colormap,
-                            origin=(xScale[0], yScale[0]),
-                            scale=(xScale[1], yScale[1]),
-                            z=z,
-                            selectable=selectable, draggable=draggable)
+        image = items.Image(
+            data,
+            copy=True,
+            colormap=colormap,
+            origin=(xScale[0], yScale[0]),
+            scale=(xScale[1], yScale[1]),
+            z=z,
+            selectable=selectable,
+            draggable=draggable,
+        )
         image.legend = legend
         image.info = info
         self._plot.addItem(image)
@@ -148,15 +182,23 @@ class PlotWidget(QtGui.QMainWindow):
 
         return image
 
-    def addItem(self, xList, yList, legend=None, info=None,
-                replace=False, replot=True,
-                shape="polygon", fill=True, **kw):
+    def addItem(
+        self,
+        xList,
+        yList,
+        legend=None,
+        info=None,
+        replace=False,
+        replot=True,
+        shape="polygon",
+        fill=True,
+        **kw
+    ):
         if kw:
-            logger.warning(
-                "addItem extra arguments deprecated")
+            logger.warning("addItem extra arguments deprecated")
 
         if replace:
-            self.remove(kind='item')
+            self.remove(kind="item")
 
         # TODO
 
@@ -165,9 +207,19 @@ class PlotWidget(QtGui.QMainWindow):
 
         return None
 
-    def addMarker(self, x, y, legend=None, text=None, color='k',
-                  selectable=False, draggable=False, replot=True,
-                  symbol=None, constraint=None):
+    def addMarker(
+        self,
+        x,
+        y,
+        legend=None,
+        text=None,
+        color="k",
+        selectable=False,
+        draggable=False,
+        replot=True,
+        symbol=None,
+        constraint=None,
+    ):
         # TODO
         return None
 
@@ -272,7 +324,7 @@ class PlotWidget(QtGui.QMainWindow):
     def getBaseVectors(self):
         pass
 
-    def setBaseVectors(self, x=(1., 0.), y=(0., 1.)):
+    def setBaseVectors(self, x=(1.0, 0.0), y=(0.0, 1.0)):
         pass
 
     # Limits
@@ -287,8 +339,8 @@ class PlotWidget(QtGui.QMainWindow):
         self._plot.xlimits = xmin, xmax
 
     def getGraphYLimits(self, axis="left"):
-        assert axis in ('left', 'right')
-        if axis == 'left':
+        assert axis in ("left", "right")
+        if axis == "left":
             axes = self._plot.axes.left
         else:
             axes = self._plot.axes.right
@@ -296,8 +348,8 @@ class PlotWidget(QtGui.QMainWindow):
         return min(start, end), max(start, end)
 
     def setGraphYLimits(self, ymin, ymax, axis="left"):
-        assert axis in ('left', 'right')
-        if axis == 'left':
+        assert axis in ("left", "right")
+        if axis == "left":
             axes = self._plot.axes.left
         else:
             axes = self._plot.axes.right
@@ -339,8 +391,9 @@ class PlotWidget(QtGui.QMainWindow):
     def getDataMargins(self):
         pass
 
-    def setDataMargins(self, xMinMargin=0., xMaxMargin=0.,
-                       yMinMargin=0., yMaxMargin=0.):
+    def setDataMargins(
+        self, xMinMargin=0.0, xMaxMargin=0.0, yMinMargin=0.0, yMaxMargin=0.0
+    ):
         pass
 
     ############
@@ -418,8 +471,7 @@ class PlotWidget(QtGui.QMainWindow):
     def getGraphCursor(self):
         pass
 
-    def setGraphCursor(self, flag=None, color=None,
-                       linewidth=None, linestyle=None):
+    def setGraphCursor(self, flag=None, color=None, linewidth=None, linestyle=None):
         pass
 
     def isDrawModeEnabled(self):
@@ -428,8 +480,9 @@ class PlotWidget(QtGui.QMainWindow):
     def getDrawMode(self):
         pass
 
-    def setDrawModeEnabled(self, flag=True, shape="polygon", label=None,
-                           color=None, **kw):
+    def setDrawModeEnabled(
+        self, flag=True, shape="polygon", label=None, color=None, **kw
+    ):
         pass
 
     def isZoomModeEnabled(self):
@@ -448,12 +501,22 @@ class PlotWidget(QtGui.QMainWindow):
     # Misc. #
     #########
 
-    def saveGraph(self, fileName, fileFormat='svg', dpi=None, **kw):
+    def saveGraph(self, fileName, fileFormat="svg", dpi=None, **kw):
         pass
 
-    def printGraph(self, width=None, height=None, xOffset=0.0, yOffset=0.0,
-                   units="inches", dpi=None, printer=None,
-                   dialog=True, keepAspectRatio=True, **kw):
+    def printGraph(
+        self,
+        width=None,
+        height=None,
+        xOffset=0.0,
+        yOffset=0.0,
+        units="inches",
+        dpi=None,
+        printer=None,
+        dialog=True,
+        keepAspectRatio=True,
+        **kw
+    ):
         pass
 
     def setCallback(self, callbackFunction):
@@ -461,71 +524,89 @@ class PlotWidget(QtGui.QMainWindow):
 
     ##############
 
-    def insertMarker(self, x, y, legend=None, text=None, color='k',
-                     selectable=False, draggable=False, replot=True,
-                     symbol=None, constraint=None, **kw):
-        logger.warning('insertMarker deprecated, use addMarker instead')
-        return self.addMarker(x, y, legend, text, color,
-                              selectable, draggable, replot,
-                              symbol, constraint)
+    def insertMarker(
+        self,
+        x,
+        y,
+        legend=None,
+        text=None,
+        color="k",
+        selectable=False,
+        draggable=False,
+        replot=True,
+        symbol=None,
+        constraint=None,
+        **kw
+    ):
+        logger.warning("insertMarker deprecated, use addMarker instead")
+        return self.addMarker(
+            x, y, legend, text, color, selectable, draggable, replot, symbol, constraint
+        )
 
-    def insertXMarker(self, x, legend=None, text=None, color='k',
-                      selectable=False, draggable=False, replot=True,
-                      **kw):
-        logger.warning(
-            'insertXMarker deprecated, use addMarker with y=None instead')
-        return self.addMarker(x, None, legend, text, color,
-                              selectable, draggable, replot,
-                              None, None)
+    def insertXMarker(
+        self,
+        x,
+        legend=None,
+        text=None,
+        color="k",
+        selectable=False,
+        draggable=False,
+        replot=True,
+        **kw
+    ):
+        logger.warning("insertXMarker deprecated, use addMarker with y=None instead")
+        return self.addMarker(
+            x, None, legend, text, color, selectable, draggable, replot, None, None
+        )
 
-    def insertYMarker(self, y, legend=None, text=None, color='k',
-                      selectable=False, draggable=False, replot=True,
-                      **kw):
-        logger.warning(
-            'insertYMarker deprecated, use addMarker with x=None instead')
-        return self.addMarker(None, y, legend, text, color,
-                              selectable, draggable, replot,
-                              None, None)
+    def insertYMarker(
+        self,
+        y,
+        legend=None,
+        text=None,
+        color="k",
+        selectable=False,
+        draggable=False,
+        replot=True,
+        **kw
+    ):
+        logger.warning("insertYMarker deprecated, use addMarker with x=None instead")
+        return self.addMarker(
+            None, y, legend, text, color, selectable, draggable, replot, None, None
+        )
 
     def clearCurves(self):
-        logger.warning(
-            "clearCurves deprecated, use remove(kind='curve') instead")
-        self.remove(kind='curve')
+        logger.warning("clearCurves deprecated, use remove(kind='curve') instead")
+        self.remove(kind="curve")
 
     def clearImages(self):
-        logger.warning(
-            "clearCurves deprecated, use remove(kind='image') instead")
-        self.remove(kind='image')
+        logger.warning("clearCurves deprecated, use remove(kind='image') instead")
+        self.remove(kind="image")
 
     def clearMarkers(self):
-        logger.warning(
-            "clearCurves deprecated, use remove(kind='markers') instead")
-        self.remove(kind='markers')
+        logger.warning("clearCurves deprecated, use remove(kind='markers') instead")
+        self.remove(kind="markers")
 
     def removeCurve(self, legend, replot=True):
-        logger.warning(
-            "removeCurve deprecated, use remove instead")
-        self.remove(legend, kind='curve')
+        logger.warning("removeCurve deprecated, use remove instead")
+        self.remove(legend, kind="curve")
         if replot:
             self.replot()
 
     def removeImage(self, legend, replot=True):
-        logger.warning(
-            "removeImage deprecated, use remove instead")
-        self.remove(legend, kind='image')
+        logger.warning("removeImage deprecated, use remove instead")
+        self.remove(legend, kind="image")
         if replot:
             self.replot()
 
     def removeItem(self, legend, replot=True):
-        logger.warning(
-            "removeItem deprecated, use remove instead")
-        self.remove(legend, kind='item')
+        logger.warning("removeItem deprecated, use remove instead")
+        self.remove(legend, kind="item")
         if replot:
             self.replot()
 
     def removeMarker(self, legend, replot=True):
-        logger.warning(
-            "removeMarker deprecated, use remove instead")
-        self.remove(legend, kind='marker')
+        logger.warning("removeMarker deprecated, use remove instead")
+        self.remove(legend, kind="marker")
         if replot:
             self.replot()

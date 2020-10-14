@@ -85,11 +85,15 @@ class TestResult(unittest.TestResult):
 
     def stopTest(self, test):
         unittest.TestResult.stopTest(self, test)
-        self.logger.info("Time: %.3fs \t RAM: %.3f Mb\t%s" % (
-            time.time() - self.__time_start,
-            (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss -
-                self.__mem_start) / 1e3,
-            test.id()))
+        self.logger.info(
+            "Time: %.3fs \t RAM: %.3f Mb\t%s"
+            % (
+                time.time() - self.__time_start,
+                (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - self.__mem_start)
+                / 1e3,
+                test.id(),
+            )
+        )
 
 
 class ProfileTestRunner(unittest.TextTestRunner):
@@ -106,24 +110,31 @@ def report_rst(cov, package, version="0.0.0"):
     :return: RST string
     """
     import tempfile
+
     fd, fn = tempfile.mkstemp(suffix=".xml")
     os.close(fd)
     cov.xml_report(outfile=fn)
 
     from lxml import etree
+
     xml = etree.parse(fn)
     classes = xml.xpath("//class")
 
     import time
+
     line0 = "Test coverage report for %s" % package
     res = [line0, "=" * len(line0), ""]
-    res.append("Measured on *%s* version %s, %s" %
-               (package, version, time.strftime("%d/%m/%Y")))
-    res += ["",
-            ".. csv-table:: Test suite coverage",
-            '   :header: "Name", "Stmts", "Exec", "Cover"',
-            '   :widths: 35, 8, 8, 8',
-            '']
+    res.append(
+        "Measured on *%s* version %s, %s"
+        % (package, version, time.strftime("%d/%m/%Y"))
+    )
+    res += [
+        "",
+        ".. csv-table:: Test suite coverage",
+        '   :header: "Name", "Stmts", "Exec", "Cover"',
+        "   :widths: 35, 8, 8, 8",
+        "",
+    ]
     tot_sum_lines = 0
     tot_sum_hits = 0
 
@@ -138,14 +149,21 @@ def report_rst(cov, package, version="0.0.0"):
 
         cover = 100.0 * sum_hits / sum_lines if sum_lines else 0
 
-        res.append('   "%s", "%s", "%s", "%.1f %%"' %
-                   (name, sum_lines, sum_hits, cover))
+        res.append(
+            '   "%s", "%s", "%s", "%.1f %%"' % (name, sum_lines, sum_hits, cover)
+        )
         tot_sum_lines += sum_lines
         tot_sum_hits += sum_hits
     res.append("")
-    res.append('   "%s total", "%s", "%s", "%.1f %%"' %
-               (package, tot_sum_lines, tot_sum_hits,
-                100.0 * tot_sum_hits / tot_sum_lines if tot_sum_lines else 0))
+    res.append(
+        '   "%s total", "%s", "%s", "%.1f %%"'
+        % (
+            package,
+            tot_sum_lines,
+            tot_sum_hits,
+            100.0 * tot_sum_hits / tot_sum_lines if tot_sum_lines else 0,
+        )
+    )
     res.append("")
     return os.linesep.join(res)
 
@@ -157,11 +175,15 @@ def get_project_name(root_dir):
     :return: The name of the project stored in root_dir
     """
     logger.debug("Getting project name in %s" % root_dir)
-    p = subprocess.Popen([sys.executable, "setup.py", "--name"],
-                         shell=False, cwd=root_dir, stdout=subprocess.PIPE)
+    p = subprocess.Popen(
+        [sys.executable, "setup.py", "--name"],
+        shell=False,
+        cwd=root_dir,
+        stdout=subprocess.PIPE,
+    )
     name, stderr_data = p.communicate()
     logger.debug("subprocess ended with rc= %s" % p.returncode)
-    return name.split()[-1].decode('ascii')
+    return name.split()[-1].decode("ascii")
 
 
 def build_project(name, root_dir):
@@ -174,8 +196,7 @@ def build_project(name, root_dir):
     :return: The path to the directory were build was performed
     """
     platform = distutils.util.get_platform()
-    architecture = "lib.%s-%i.%i" % (platform,
-                                     sys.version_info[0], sys.version_info[1])
+    architecture = "lib.%s-%i.%i" % (platform, sys.version_info[0], sys.version_info[1])
 
     if os.environ.get("PYBUILD_NAME") == name:
         # we are in the debian packaging way
@@ -186,37 +207,60 @@ def build_project(name, root_dir):
         home = os.path.join(root_dir, "build", architecture)
 
     logger.warning("Building %s to %s" % (name, home))
-    p = subprocess.Popen([sys.executable, "setup.py", "build"],
-                         shell=False, cwd=root_dir)
+    p = subprocess.Popen(
+        [sys.executable, "setup.py", "build"], shell=False, cwd=root_dir
+    )
     logger.debug("subprocess ended with rc= %s" % p.wait())
     return home
 
 
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_NAME = get_project_name(PROJECT_DIR)
-logger.info('Project name: %s' % PROJECT_NAME)
+logger.info("Project name: %s" % PROJECT_NAME)
 
 
 from argparse import ArgumentParser
 
-parser = ArgumentParser(description='Run the tests.')
+parser = ArgumentParser(description="Run the tests.")
 
-parser.add_argument("-i", "--insource",
-                    action="store_true", dest="insource", default=False,
-                    help="Use the build source and not the installed version")
-parser.add_argument("-c", "--coverage", dest="coverage",
-                    action="store_true", default=False,
-                    help=("Report code coverage" +
-                          "(requires 'coverage' and 'lxml' module)"))
-parser.add_argument("-m", "--memprofile", dest="memprofile",
-                    action="store_true", default=False,
-                    help="Report memory profiling")
-parser.add_argument("-v", "--verbose", default=0,
-                    action="count", dest="verbose",
-                    help="Increase verbosity")
 parser.add_argument(
-    "test_name", nargs='*', default=(),
-    help="Test names to run (Default: %s.test.suite)" % PROJECT_NAME)
+    "-i",
+    "--insource",
+    action="store_true",
+    dest="insource",
+    default=False,
+    help="Use the build source and not the installed version",
+)
+parser.add_argument(
+    "-c",
+    "--coverage",
+    dest="coverage",
+    action="store_true",
+    default=False,
+    help=("Report code coverage" + "(requires 'coverage' and 'lxml' module)"),
+)
+parser.add_argument(
+    "-m",
+    "--memprofile",
+    dest="memprofile",
+    action="store_true",
+    default=False,
+    help="Report memory profiling",
+)
+parser.add_argument(
+    "-v",
+    "--verbose",
+    default=0,
+    action="count",
+    dest="verbose",
+    help="Increase verbosity",
+)
+parser.add_argument(
+    "test_name",
+    nargs="*",
+    default=(),
+    help="Test names to run (Default: %s.test.suite)" % PROJECT_NAME,
+)
 options = parser.parse_args()
 sys.argv = [sys.argv[0]]
 
@@ -232,6 +276,7 @@ elif options.verbose > 1:
 if options.coverage:
     logger.info("Running test-coverage")
     import coverage
+
     try:
         cov = coverage.Coverage(omit=["*test*", "*third_party*", "*/setup.py"])
     except AttributeError:
@@ -240,8 +285,7 @@ if options.coverage:
 
 
 # Prevent importing from source directory
-if (os.path.dirname(os.path.abspath(__file__)) ==
-        os.path.abspath(sys.path[0])):
+if os.path.dirname(os.path.abspath(__file__)) == os.path.abspath(sys.path[0]):
     removed_from_sys_path = sys.path.pop(0)
     logger.info("Patched sys.path, removed: '%s'" % removed_from_sys_path)
 
@@ -252,8 +296,8 @@ if not options.insource:
         module = importlib.import_module(PROJECT_NAME)
     except:
         logger.warning(
-            "%s missing, using built (i.e. not installed) version",
-            PROJECT_NAME)
+            "%s missing, using built (i.e. not installed) version", PROJECT_NAME
+        )
         options.insource = True
 
 if options.insource:
@@ -264,7 +308,7 @@ if options.insource:
     module = importlib.import_module(PROJECT_NAME)
 
 
-PROJECT_VERSION = getattr(module, 'version', '')
+PROJECT_VERSION = getattr(module, "version", "")
 PROJECT_PATH = module.__path__[0]
 
 
@@ -274,21 +318,19 @@ if options.memprofile:
 else:
     runner = unittest.TextTestRunner()
 
-logger.warning(
-    "Test %s %s from %s", PROJECT_NAME, PROJECT_VERSION, PROJECT_PATH)
+logger.warning("Test %s %s from %s", PROJECT_NAME, PROJECT_VERSION, PROJECT_PATH)
 
 test_suite = unittest.TestSuite()
 if not options.test_name:
     # Do not use test loader to avoid cryptic exception
     # when an error occur during import
-    test_module_name = PROJECT_NAME + '.test'
-    logger.info('Import %s', test_module_name)
+    test_module_name = PROJECT_NAME + ".test"
+    logger.info("Import %s", test_module_name)
     test_module = importlib.import_module(test_module_name)
-    project_test_suite = getattr(test_module, 'suite')
+    project_test_suite = getattr(test_module, "suite")
     test_suite.addTest(project_test_suite())
 else:
-    test_suite.addTest(
-        unittest.defaultTestLoader.loadTestsFromNames(options.test_name))
+    test_suite.addTest(unittest.defaultTestLoader.loadTestsFromNames(options.test_name))
 
 
 if runner.run(test_suite).wasSuccessful():

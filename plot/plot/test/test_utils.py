@@ -43,9 +43,10 @@ class TestProxyProperty(unittest.TestCase):
 
         class Leaf(object):
             """The class that is wrapped"""
+
             def __init__(self):
-                self._prop = 'value prop'
-                self.instanceAttribute = 'value attribute'
+                self._prop = "value prop"
+                self.instanceAttribute = "value attribute"
 
             @property
             def prop(self):
@@ -57,35 +58,37 @@ class TestProxyProperty(unittest.TestCase):
 
         class Composite(object):
             """The wrapping class"""
+
             def __init__(self):
                 self.leaf = Leaf()
 
-            testAttribute = utils.proxyProperty('leaf', 'instanceAttribute')
-            testPropertyRO = utils.proxyProperty('leaf', 'prop', setter=False)
-            testProperty = utils.proxyProperty('leaf', 'prop', setter=True)
+            testAttribute = utils.proxyProperty("leaf", "instanceAttribute")
+            testPropertyRO = utils.proxyProperty("leaf", "prop", setter=False)
+            testProperty = utils.proxyProperty("leaf", "prop", setter=True)
 
         test = Composite()
 
         # Wrapped attribute
-        self.assertEqual(test.testAttribute, 'value attribute')
+        self.assertEqual(test.testAttribute, "value attribute")
 
         # Property wrapped as read-only
-        self.assertEqual(test.testPropertyRO, 'value prop')
+        self.assertEqual(test.testPropertyRO, "value prop")
         with self.assertRaises(AttributeError):
             test.testPropertyRO = None
 
         # Wrapped property
-        self.assertEqual(test.testProperty, 'value prop')
-        test.testProperty = 'new value'
-        self.assertEqual(test.testProperty, 'new value')
+        self.assertEqual(test.testProperty, "value prop")
+        test.testProperty = "new value"
+        self.assertEqual(test.testProperty, "new value")
 
 
 def suite():
     test_suite = unittest.TestSuite()
     test_suite.addTest(
-        unittest.defaultTestLoader.loadTestsFromTestCase(TestProxyProperty))
+        unittest.defaultTestLoader.loadTestsFromTestCase(TestProxyProperty)
+    )
     return test_suite
 
 
-if __name__ == '__main__':
-    unittest.main(defaultTest='suite')
+if __name__ == "__main__":
+    unittest.main(defaultTest="suite")

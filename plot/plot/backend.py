@@ -52,10 +52,10 @@ class Backend(object):
 
         # TODO init from description
 
-        plot.addListener(self._needRedisplayListener, event='needRedisplay')
-        plot.addListener(self._setListener, event='set')
-        plot.addListener(self._itemsListener, event='addItem')
-        plot.addListener(self._itemsListener, event='removeItem')
+        plot.addListener(self._needRedisplayListener, event="needRedisplay")
+        plot.addListener(self._setListener, event="set")
+        plot.addListener(self._itemsListener, event="addItem")
+        plot.addListener(self._itemsListener, event="removeItem")
 
     def triggerRedisplay(self):
         pass
@@ -84,10 +84,11 @@ class Backend(object):
 
     def _setListener(self, source, event, attr, value, **kwargs):
         self._changes.append(
-            {'event': event, 'source': source, 'attr': attr, 'value': value})
+            {"event": event, "source": source, "attr": attr, "value": value}
+        )
 
     def _itemsListener(self, source, event, item, **kwargs):
-        self._changes.append({'event': event, 'source': source, 'item': item})
+        self._changes.append({"event": event, "source": source, "item": item})
 
     def draw(self):
         """Perform the rendering."""

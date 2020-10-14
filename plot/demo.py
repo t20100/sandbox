@@ -23,11 +23,10 @@ def test_widget():
 
     plt = PlotWidget()
     plt.addCurve(x=None, y=(1, 2, 2))
-    plt.addImage(data=numpy.arange(100).reshape(10, -1),
-                 xScale=(0, 1), yScale=(10, 1))
-    plt.setGraphTitle('Procedural Plot API')
-    plt.setGraphXLabel('x label')
-    plt.setGraphYLabel('y label')
+    plt.addImage(data=numpy.arange(100).reshape(10, -1), xScale=(0, 1), yScale=(10, 1))
+    plt.setGraphTitle("Procedural Plot API")
+    plt.setGraphXLabel("x label")
+    plt.setGraphYLabel("y label")
     plt.setGraphXLimits(0, 10)
     plt.setGraphYLimits(0, 20)
     plt.invertYAxis(True)
@@ -41,7 +40,8 @@ def test_plot():
 
     class MyPlotWidget(Plot):
         """Glue class, should be provided by plot"""
-        def __init__(self, title=''):
+
+        def __init__(self, title=""):
             super(MyPlotWidget, self).__init__(title=title)
             self.backend = BackendMPL(self)
 
@@ -53,17 +53,17 @@ def test_plot():
     plt = MyPlotWidget()
     plt.addImage(data=numpy.arange(100).reshape(10, -1), origin=(0, 10))
     curve = plt.addCurve(y=(1, 2, 2))
-    plt.title = 'OO Plot API'
-    plt.xlabel = 'x left'
-    plt.ylabel = 'y left'
+    plt.title = "OO Plot API"
+    plt.xlabel = "x left"
+    plt.ylabel = "y left"
     plt.xlimits = 0, 10
     plt.ylimits = 20, 0
     plt.show()
 
     # Update
     curve.linewidth = 2
-    plt.grid = 'both'
-    plt.axes.right.ylabel = 'y right'
+    plt.grid = "both"
+    plt.axes.right.ylabel = "y right"
     return plt
 
 

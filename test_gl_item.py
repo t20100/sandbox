@@ -12,7 +12,15 @@ from silx.gui.plot.backends.glutils import GLPlotItem
 from silx.gui import _glutils
 from silx.gui._glutils import gl, Texture
 from silx.gui.plot3d import items as plot3d_items
-from silx.gui.plot3d.scene import function, mixins,transform, primitives, utils, viewport, window
+from silx.gui.plot3d.scene import (
+    function,
+    mixins,
+    transform,
+    primitives,
+    utils,
+    viewport,
+    window,
+)
 from silx.gui.plot3d.scene.cutplane import ColormapMesh3D
 
 
@@ -21,6 +29,7 @@ _logger = logging.getLogger(__name__)
 
 
 # Base class for plot3d.scene integration in PlotWidget OpenGL backend
+
 
 class GLPlotItemPlot3DWrapper(GLPlotItem):
     """Allow to use silx.gui.plot3d.scene within :class:`PlotWidget`
@@ -36,20 +45,21 @@ class GLPlotItemPlot3DWrapper(GLPlotItem):
 
         self._viewport = viewport.Viewport()
         self._viewport.camera.intrinsic = transform.Orthographic(
-            near=1000., far=-1000., keepaspect=False)
-        self._viewport.camera.extrinsic.position = 0., 0., 0.
+            near=1000.0, far=-1000.0, keepaspect=False
+        )
+        self._viewport.camera.extrinsic.position = 0.0, 0.0, 0.0
         self._viewport.scene.children = [primitive]
-        
+
     def setGLBackend(self, backend):
         """Set the :class:`PlotWidget` OpenGL backend to use.
-        
+
         :param BackendOpenGL backend:
         """
         self._backendRef = None if backend is None else weakref.ref(backend)
 
     def getGLBackend(self):
         """Returns the :class:`PlotWidget` OpenGL backend in use.
-        
+
         :rtype: Union[BackendOpenGL,None]
         """
         return None if self._backendRef is None else self._backendRef()
@@ -80,7 +90,7 @@ class GLPlotItemPlot3DWrapper(GLPlotItem):
         if plotFrame.isYAxisInverted:
             top, bottom = trBounds[1]
         else:
-             bottom, top = trBounds[1]
+            bottom, top = trBounds[1]
         self._viewport.camera.intrinsic.size = self._viewport.size
         self._viewport.camera.intrinsic.setClipping(left, right, bottom, top)
 
@@ -113,14 +123,14 @@ class GLPlotItemPlot3DWrapper(GLPlotItem):
             return
 
         with context as ctx:
-            context.cleanGLGarbage() # Get a chance to run deferred delete
+            context.cleanGLGarbage()  # Get a chance to run deferred delete
 
             self._syncViewport()
             ctx = viewport.RenderContext(self._viewport, context)
             self._viewport.scene.render(ctx)
             self._viewport.scene.postRender(ctx)
 
-    def discard(self): # TODO here or not needed?
+    def discard(self):  # TODO here or not needed?
         self._viewport.scene.children = []
         # TODO call self.getGLBackend().context().cleanGLGarbage()
         # TODO make it net
@@ -134,7 +144,7 @@ class PlotItemPlot3DWrapperMixIn:
     """Ease usage of GLPlotItemPlot3DWrapper in PlotWidget Items.
 
     This class MUST come before Item in the method resolution order.
-    
+
     :param GLPlotItemPlot3DWrapper renderer:
     """
 
@@ -180,8 +190,9 @@ class PlotItemPlot3DWrapperMixIn:
         """
         plot = self.getPlot()
         if plot is not None and (
-                plot.getXAxis().getScale() != items.Axis.LINEAR or
-                plot.getYAxis().getScale() != items.Axis.LINEAR):
+            plot.getXAxis().getScale() != items.Axis.LINEAR
+            or plot.getYAxis().getScale() != items.Axis.LINEAR
+        ):
             return None  # No display with log scale for now
 
         image = self.getScenePrimitive()
@@ -193,6 +204,7 @@ class PlotItemPlot3DWrapperMixIn:
 
 
 # plot3d-based Image PlotWidget item replacement
+
 
 class GLImageBackendItem(GLPlotItemPlot3DWrapper):
     """PlotWidget OpenGL backend data image primitive using plot3d.scene."""
@@ -225,10 +237,12 @@ class GLImageBackendItem(GLPlotItemPlot3DWrapper):
             return None
 
 
-class GLImage(PlotItemPlot3DWrapperMixIn,
-              items.ImageBase,
-              plot3d_items.ColormapMixIn,
-              plot3d_items.InterpolationMixIn):
+class GLImage(
+    PlotItemPlot3DWrapperMixIn,
+    items.ImageBase,
+    plot3d_items.ColormapMixIn,
+    plot3d_items.InterpolationMixIn,
+):
     """Data image PlotWidget item based on plot3d.scene"""
 
     def __init__(self):
@@ -244,8 +258,7 @@ class GLImage(PlotItemPlot3DWrapperMixIn,
         self._glsync()
 
     def _initPrimitive(self):
-        return primitives.ImageData(
-            data=numpy.zeros((0, 0), dtype=numpy.float32))
+        return primitives.ImageData(data=numpy.zeros((0, 0), dtype=numpy.float32))
 
     def _glsync(self):
         """Perform synchronisation that is not performed by mixin"""
@@ -255,14 +268,16 @@ class GLImage(PlotItemPlot3DWrapperMixIn,
         translate.tx, translate.ty = self.getOrigin()
         scale.sx, scale.sy = self.getScale()
 
-    def _updated(self, event=None, checkVisibility: bool=True):
-        if event in (items.ItemChangedType.ALPHA,
-                     items.ItemChangedType.POSITION,
-                     items.ItemChangedType.SCALE):
+    def _updated(self, event=None, checkVisibility: bool = True):
+        if event in (
+            items.ItemChangedType.ALPHA,
+            items.ItemChangedType.POSITION,
+            items.ItemChangedType.SCALE,
+        ):
             self._glsync()
         return super()._updated(event=event, checkVisibility=checkVisibility)
 
-    def getRgbaImageData(self, copy: bool=True):  # TODO remove?
+    def getRgbaImageData(self, copy: bool = True):  # TODO remove?
         """Get the displayed RGB(A) image
 
         :returns: Array of uint8 of shape (height, width, 4)
@@ -270,16 +285,16 @@ class GLImage(PlotItemPlot3DWrapperMixIn,
         """
         return self.getColormap().applyToData(self)
 
-    def getData(self, copy: bool=True):
+    def getData(self, copy: bool = True):
         """Returns the image data
-        
+
         :param bool copy: True (Default) to get a copy,
                           False to use internal representation (do not modify!)
         """
         return self.getScenePrimitive().getData(copy=copy)
 
-    def setData(self, data, copy: bool=True):
-        """"Set the image data
+    def setData(self, data, copy: bool = True):
+        """ "Set the image data
 
         :param numpy.ndarray data: Data array with 2 dimensions (h, w)
         :param bool copy: True (Default) to make a copy,
@@ -287,13 +302,11 @@ class GLImage(PlotItemPlot3DWrapperMixIn,
         """
         data = numpy.array(data, copy=copy)
         assert data.ndim == 2
-        if data.dtype.kind == 'b':
-            _logger.warning(
-                'Converting boolean image to int8 to plot it.')
+        if data.dtype.kind == "b":
+            _logger.warning("Converting boolean image to int8 to plot it.")
             data = numpy.array(data, copy=False, dtype=numpy.int8)
         elif numpy.iscomplexobj(data):
-            _logger.warning(
-                'Converting complex image to absolute value to plot it.')
+            _logger.warning("Converting complex image to absolute value to plot it.")
             data = numpy.absolute(data)
         # TODO cast to valid type (u)int8|16 or float32
 
@@ -312,7 +325,8 @@ class GLImage(PlotItemPlot3DWrapperMixIn,
 class ColormapTexturedMesh3D(primitives.Geometry, mixins.DataTextureMixIn):
     """A 3D mesh with color from a 3D texture, no lighting."""
 
-    _shaders = ("""
+    _shaders = (
+        """
     attribute vec3 position;
     attribute vec3 texcoord;
 
@@ -329,7 +343,8 @@ class ColormapTexturedMesh3D(primitives.Geometry, mixins.DataTextureMixIn):
         gl_Position = matrix * vec4(position, 1.0);
     }
     """,
-                string.Template("""
+        string.Template(
+            """
     varying vec4 vCameraPosition;
     varying vec3 vTexCoord;
     uniform sampler3D data;
@@ -348,19 +363,30 @@ class ColormapTexturedMesh3D(primitives.Geometry, mixins.DataTextureMixIn):
 
         $scenePostCall(vCameraPosition);
     }
-    """))
+    """
+        ),
+    )
 
-    def __init__(self, position, texcoord, data, copy=True,
-                 mode='triangles', indices=None, colormap=None):
+    def __init__(
+        self,
+        position,
+        texcoord,
+        data,
+        copy=True,
+        mode="triangles",
+        indices=None,
+        colormap=None,
+    ):
         assert mode in self._TRIANGLE_MODES
 
-        self._alpha = 1.
+        self._alpha = 1.0
         self._colormap = colormap or function.Colormap()  # Default colormap
         self._colormap.addListener(self._cmapChanged)
 
         mixins.DataTextureMixIn.__init__(self, ndim=3, data=data, copy=copy)
         primitives.Geometry.__init__(
-            self, mode, indices, position=position, texcoord=texcoord)
+            self, mode, indices, position=position, texcoord=texcoord
+        )
 
     def setData(self, data, copy=True):
         super().setData(data, copy)
@@ -394,19 +420,17 @@ class ColormapTexturedMesh3D(primitives.Geometry, mixins.DataTextureMixIn):
             scenePreCall=ctx.fragCallPre,
             scenePostCall=ctx.fragCallPost,
             colormapDecl=self.colormap.decl,
-            colormapCall=self.colormap.call
-            )
+            colormapCall=self.colormap.call,
+        )
         program = ctx.glCtx.prog(self._shaders[0], fragment)
         program.use()
 
         self.colormap.setupProgram(ctx, program)
 
-        program.setUniformMatrix('matrix', ctx.objectToNDC.matrix)
-        program.setUniformMatrix('transformMat',
-                                 ctx.objectToCamera.matrix,
-                                 safe=True)
-        gl.glUniform1f(program.uniforms['alpha'], self._alpha)
-        gl.glUniform1i(program.uniforms['data'], self.texture.texUnit)
+        program.setUniformMatrix("matrix", ctx.objectToNDC.matrix)
+        program.setUniformMatrix("transformMat", ctx.objectToCamera.matrix, safe=True)
+        gl.glUniform1f(program.uniforms["alpha"], self._alpha)
+        gl.glUniform1i(program.uniforms["data"], self.texture.texUnit)
 
         ctx.setupProgram(program)
 
@@ -416,6 +440,7 @@ class ColormapTexturedMesh3D(primitives.Geometry, mixins.DataTextureMixIn):
 
 class GLImageStack(GLImage):
     """Data image PlotWidget item based on plot3d.scene"""
+
     # TODO origin and scale taking 3 values
 
     def __init__(self):
@@ -429,7 +454,8 @@ class GLImageStack(GLImage):
             texcoord=numpy.zeros((4, 3), dtype=numpy.float32),
             data=numpy.zeros((0, 0, 0), dtype=numpy.float32),
             copy=False,
-            mode='triangle_strip')
+            mode="triangle_strip",
+        )
 
     def __updatePrimitive(self):
         """Update the vertices and tex coords"""
@@ -438,20 +464,21 @@ class GLImageStack(GLImage):
         axis = self.getSliceAxis()
 
         unitsquare = numpy.array(
-            [(0., 0., 0.), (0., 1., 0.), (1., 0., 0.), (1., 1., 0.)],
-            dtype=numpy.float32)
+            [(0.0, 0.0, 0.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0)],
+            dtype=numpy.float32,
+        )
 
         size = list(reversed(shape))
         size.pop(2 - axis)
         vertices = unitsquare[:, :2] * size
-        mesh.setAttribute('position', vertices, copy=False)
+        mesh.setAttribute("position", vertices, copy=False)
 
         texcoord = numpy.array(unitsquare, copy=True)
         texcoord[:, -1] = (self.getSliceIndex() + 0.5) / shape[axis]
         texcoord = numpy.roll(texcoord, axis=1, shift=-axis)
-        mesh.setAttribute('texcoord', texcoord, copy=False)
+        mesh.setAttribute("texcoord", texcoord, copy=False)
 
-    def _updated(self, event=None, checkVisibility: bool=True):
+    def _updated(self, event=None, checkVisibility: bool = True):
         if event == items.ItemChangedType.DATA:
             self.__updatePrimitive()
             self._setColormappedData(self.getData(copy=False), copy=False)
@@ -465,7 +492,7 @@ class GLImageStack(GLImage):
             if plot is not None:
                 plot._invalidateDataRange()
 
-    def getRgbaImageData(self, copy: bool=True):
+    def getRgbaImageData(self, copy: bool = True):
         """Get the displayed RGB(A) image
 
         :returns: Array of uint8 of shape (height, width, 4)
@@ -473,33 +500,32 @@ class GLImageStack(GLImage):
         """
         return self.getColormap().applyToData(self)
 
-    def getData(self, copy: bool=True):
+    def getData(self, copy: bool = True):
         """Returns the image data
-        
+
         :param bool copy: True (Default) to get a copy,
                           False to use internal representation (do not modify!)
         """
         slicing = [slice(None)] * 3
         slicing[self.getSliceAxis()] = self.getSliceIndex()
-        return numpy.array(
-            self.getStackData(copy=False)[tuple(slicing)], copy=copy)
+        return numpy.array(self.getStackData(copy=False)[tuple(slicing)], copy=copy)
 
-    def setData(self, data, copy: bool=True):
+    def setData(self, data, copy: bool = True):
         data = numpy.array(data, copy=False)
         if data.ndim == 2:  # Make it a 3D stack
             data.shape = (1,) + data.shape
         self.setStackData(data, copy)
 
-    def getStackData(self, copy: bool=True):
+    def getStackData(self, copy: bool = True):
         """Returns the image stack data
-        
+
         :param bool copy: True (Default) to get a copy,
                           False to use internal representation (do not modify!)
         """
         return self.getScenePrimitive().getData(copy=copy)
 
-    def setStackData(self, data, copy: bool=True):
-        """"Set the image stack data
+    def setStackData(self, data, copy: bool = True):
+        """ "Set the image stack data
 
         :param numpy.ndarray data:
             Data array with 3 dimensions (depth, height, width)
@@ -508,13 +534,11 @@ class GLImageStack(GLImage):
         """
         data = numpy.array(data, copy=copy)
         assert data.ndim == 3
-        if data.dtype.kind == 'b':
-            _logger.warning(
-                'Converting boolean image to int8 to plot it.')
+        if data.dtype.kind == "b":
+            _logger.warning("Converting boolean image to int8 to plot it.")
             data = numpy.array(data, copy=False, dtype=numpy.int8)
         elif numpy.iscomplexobj(data):
-            _logger.warning(
-                'Converting complex image to absolute value to plot it.')
+            _logger.warning("Converting complex image to absolute value to plot it.")
             data = numpy.absolute(data)
         # TODO cast to valid type (u)int8|16 or float32
 
@@ -526,12 +550,11 @@ class GLImageStack(GLImage):
         self._updated(items.ItemChangedType.DATA)
 
     def __validSliceIndex(self, index: int, axis: int) -> int:
-        """Returns a valid slice index for given axis and current data.
-        """
+        """Returns a valid slice index for given axis and current data."""
         length = self.getStackData(copy=False).shape[axis]
         if index < 0:  # Handle negative index
             index += length
-        index = numpy.clip(index, 0, length-1)
+        index = numpy.clip(index, 0, length - 1)
         return index
 
     def setSlice(self, index: int, axis: int) -> None:
@@ -561,7 +584,7 @@ class GLImageStack(GLImage):
 
         Negative index are converted to positive ones.
         Index is clipped to the stack shape.
-        
+
         :param int index: The index of the slice.
         """
         index = self.__validSliceIndex(index, self.getSliceAxis())
@@ -591,17 +614,32 @@ class GLImageStack(GLImage):
 class DataTexture(Texture):
     """Texture keeping a CPU memory copy of the data"""
 
-    def __init__(self, internalFormat, data, format_=None, texUnit=0,
-                 minFilter=None, magFilter=None, wrap=None):
+    def __init__(
+        self,
+        internalFormat,
+        data,
+        format_=None,
+        texUnit=0,
+        minFilter=None,
+        magFilter=None,
+        wrap=None,
+    ):
         self.__data = numpy.array(data, copy=False)
 
         super().__init__(
-            internalFormat, self.__data, format_, None, texUnit,
-            minFilter, magFilter, wrap)
+            internalFormat,
+            self.__data,
+            format_,
+            None,
+            texUnit,
+            minFilter,
+            magFilter,
+            wrap,
+        )
 
     def getData(self, copy=True):
         """Returns the image data
-        
+
         :param bool copy: True (Default) to get a copy,
                           False to use internal representation (do not modify!)
         """
@@ -611,7 +649,7 @@ class DataTexture(Texture):
         data = numpy.array(data, copy=False)
         oz, oy, oz = offset
         depth, height, width = data.shape
-        self.__data[oz:oz+depth, oy:oy+height, ox:ox+width] = data
+        self.__data[oz : oz + depth, oy : oy + height, ox : ox + width] = data
 
         super().update(format_, data, offset, copy)
 
@@ -619,7 +657,8 @@ class DataTexture(Texture):
 class ColormapTexturedMesh3D(primitives.Geometry):
     """A 3D mesh with color from a 3D texture, no lighting."""
 
-    _shaders = ("""
+    _shaders = (
+        """
     attribute vec3 position;
     attribute vec3 texcoord;
 
@@ -636,7 +675,8 @@ class ColormapTexturedMesh3D(primitives.Geometry):
         gl_Position = matrix * vec4(position, 1.0);
     }
     """,
-                string.Template("""
+        string.Template(
+            """
     varying vec4 vCameraPosition;
     varying vec3 vTexCoord;
     uniform sampler3D data;
@@ -655,14 +695,17 @@ class ColormapTexturedMesh3D(primitives.Geometry):
 
         $scenePostCall(vCameraPosition);
     }
-    """))
+    """
+        ),
+    )
 
-    def __init__(self, position, texcoord, texture,
-                 mode='triangles', indices=None, colormap=None):
+    def __init__(
+        self, position, texcoord, texture, mode="triangles", indices=None, colormap=None
+    ):
         assert mode in self._TRIANGLE_MODES
         assert texture is None or isinstance(texture, Texture)
 
-        self._alpha = 1.
+        self._alpha = 1.0
         self._colormap = colormap or function.Colormap()  # Default colormap
         self._colormap.addListener(self._cmapChanged)
 
@@ -702,9 +745,9 @@ class ColormapTexturedMesh3D(primitives.Geometry):
         """Broadcast colormap changes"""
         self.notify(*args, **kwargs)
 
-    def getData(self, copy: bool=True):
+    def getData(self, copy: bool = True):
         """Returns the image data
-        
+
         :param bool copy: True (Default) to get a copy,
                           False to use internal representation (do not modify!)
         """
@@ -713,7 +756,7 @@ class ColormapTexturedMesh3D(primitives.Geometry):
     def prepareGL2(self, ctx):
         while self._texturesToDiscard:
             self._texturesToDiscard.pop(0).discard()
-        
+
         if self.texture is not None:
             self.texture.prepare()
 
@@ -728,19 +771,17 @@ class ColormapTexturedMesh3D(primitives.Geometry):
             scenePreCall=ctx.fragCallPre,
             scenePostCall=ctx.fragCallPost,
             colormapDecl=self.colormap.decl,
-            colormapCall=self.colormap.call
-            )
+            colormapCall=self.colormap.call,
+        )
         program = ctx.glCtx.prog(self._shaders[0], fragment)
         program.use()
 
         self.colormap.setupProgram(ctx, program)
 
-        program.setUniformMatrix('matrix', ctx.objectToNDC.matrix)
-        program.setUniformMatrix('transformMat',
-                                 ctx.objectToCamera.matrix,
-                                 safe=True)
-        gl.glUniform1f(program.uniforms['alpha'], self._alpha)
-        gl.glUniform1i(program.uniforms['data'], self.texture.texUnit)
+        program.setUniformMatrix("matrix", ctx.objectToNDC.matrix)
+        program.setUniformMatrix("transformMat", ctx.objectToCamera.matrix, safe=True)
+        gl.glUniform1f(program.uniforms["alpha"], self._alpha)
+        gl.glUniform1i(program.uniforms["data"], self.texture.texUnit)
 
         ctx.setupProgram(program)
 
@@ -750,6 +791,7 @@ class ColormapTexturedMesh3D(primitives.Geometry):
 
 class GLImageStack(GLImage):
     """Data image PlotWidget item based on plot3d.scene"""
+
     # TODO origin and scale taking 3 values
 
     def __init__(self):
@@ -763,7 +805,8 @@ class GLImageStack(GLImage):
             position=numpy.zeros((4, 3), dtype=numpy.float32),
             texcoord=numpy.zeros((4, 3), dtype=numpy.float32),
             texture=None,
-            mode='triangle_strip')
+            mode="triangle_strip",
+        )
 
     def __updatePrimitive(self):
         """Update the vertices and tex coords"""
@@ -774,20 +817,21 @@ class GLImageStack(GLImage):
         mesh = self.getScenePrimitive()
 
         unitsquare = numpy.array(
-            [(0., 0., 0.), (0., 1., 0.), (1., 0., 0.), (1., 1., 0.)],
-            dtype=numpy.float32)
+            [(0.0, 0.0, 0.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0)],
+            dtype=numpy.float32,
+        )
 
         size = list(reversed(shape))
         size.pop(2 - axis)
         vertices = unitsquare[:, :2] * size
-        mesh.setAttribute('position', vertices, copy=False)
+        mesh.setAttribute("position", vertices, copy=False)
 
         texcoord = numpy.array(unitsquare, copy=True)
         texcoord[:, -1] = (self.getSliceIndex() + 0.5) / shape[axis]
         texcoord = numpy.roll(texcoord, axis=1, shift=-axis)
-        mesh.setAttribute('texcoord', texcoord, copy=False)
+        mesh.setAttribute("texcoord", texcoord, copy=False)
 
-    def _updated(self, event=None, checkVisibility: bool=True):
+    def _updated(self, event=None, checkVisibility: bool = True):
         if event == items.ItemChangedType.DATA:
             self.__updatePrimitive()
             self._setColormappedData(self.getData(copy=False), copy=False)
@@ -801,7 +845,7 @@ class GLImageStack(GLImage):
             if plot is not None:
                 plot._invalidateDataRange()
 
-    def getRgbaImageData(self, copy: bool=True):
+    def getRgbaImageData(self, copy: bool = True):
         """Get the displayed RGB(A) image
 
         :returns: Array of uint8 of shape (height, width, 4)
@@ -809,26 +853,25 @@ class GLImageStack(GLImage):
         """
         return self.getColormap().applyToData(self)
 
-    def getData(self, copy: bool=True):
+    def getData(self, copy: bool = True):
         """Returns the image data
-        
+
         :param bool copy: True (Default) to get a copy,
                           False to use internal representation (do not modify!)
         """
         slicing = [slice(None)] * 3
         slicing[self.getSliceAxis()] = self.getSliceIndex()
-        return numpy.array(
-            self.getStackData(copy=False)[tuple(slicing)], copy=copy)
+        return numpy.array(self.getStackData(copy=False)[tuple(slicing)], copy=copy)
 
-    def setData(self, data, copy: bool=True):
+    def setData(self, data, copy: bool = True):
         data = numpy.array(data, copy=False)
         if data.ndim == 2:  # Make it a 3D stack
             data.shape = (1,) + data.shape
         self.setStackData(data, copy)
 
-    def getStackData(self, copy: bool=True):
+    def getStackData(self, copy: bool = True):
         """Returns the image stack data
-        
+
         :param bool copy: True (Default) to get a copy,
                           False to use internal representation (do not modify!)
         """
@@ -837,8 +880,8 @@ class GLImageStack(GLImage):
         else:
             return self.__texture.getData(copy=copy)
 
-    def setStackData(self, data, copy: bool=True):
-        """"Set the image stack data
+    def setStackData(self, data, copy: bool = True):
+        """ "Set the image stack data
 
         :param numpy.ndarray data:
             Data array with 3 dimensions (depth, height, width)
@@ -847,13 +890,11 @@ class GLImageStack(GLImage):
         """
         data = numpy.array(data, copy=copy)
         assert data.ndim == 3
-        if data.dtype.kind == 'b':
-            _logger.warning(
-                'Converting boolean image to int8 to plot it.')
+        if data.dtype.kind == "b":
+            _logger.warning("Converting boolean image to int8 to plot it.")
             data = numpy.array(data, copy=False, dtype=numpy.int8)
         elif numpy.iscomplexobj(data):
-            _logger.warning(
-                'Converting complex image to absolute value to plot it.')
+            _logger.warning("Converting complex image to absolute value to plot it.")
             data = numpy.absolute(data)
         # TODO cast to valid type (u)int8|16 or float32
 
@@ -862,13 +903,16 @@ class GLImageStack(GLImage):
         else:
             filter_ = self.texture.magFilter
 
-        self.setDataTexture(DataTexture(
-            internalFormat=gl.GL_R32F,
-            data=data,
-            format_=gl.GL_RED,
-            minFilter=filter_,
-            magFilter=filter_,
-            wrap=gl.GL_CLAMP_TO_EDGE))
+        self.setDataTexture(
+            DataTexture(
+                internalFormat=gl.GL_R32F,
+                data=data,
+                format_=gl.GL_RED,
+                minFilter=filter_,
+                magFilter=filter_,
+                wrap=gl.GL_CLAMP_TO_EDGE,
+            )
+        )
 
     def getDataTexture(self):
         return self.__texture
@@ -884,12 +928,11 @@ class GLImageStack(GLImage):
         self._updated(items.ItemChangedType.DATA)
 
     def __validSliceIndex(self, index: int, axis: int) -> int:
-        """Returns a valid slice index for given axis and current data.
-        """
+        """Returns a valid slice index for given axis and current data."""
         length = self.getStackData(copy=False).shape[axis]
         if index < 0:  # Handle negative index
             index += length
-        index = numpy.clip(index, 0, length-1)
+        index = numpy.clip(index, 0, length - 1)
         return index
 
     def setSlice(self, index: int, axis: int) -> None:
@@ -919,7 +962,7 @@ class GLImageStack(GLImage):
 
         Negative index are converted to positive ones.
         Index is clipped to the stack shape.
-        
+
         :param int index: The index of the slice.
         """
         index = self.__validSliceIndex(index, self.getSliceAxis())
@@ -946,32 +989,32 @@ class GLImageStack(GLImage):
             self._updated(items.ItemChangedType.DATA)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from silx.gui import qt
     from silx.gui.plot import Plot2D
 
     qt.QApplication.setAttribute(qt.Qt.AA_ShareOpenGLContexts, True)
     qt.QApplication.setAttribute(qt.Qt.AA_EnableHighDpiScaling, True)
-    
+
     app = qt.QApplication([])
 
     if 0:
-        plot = Plot2D(backend='gl')
+        plot = Plot2D(backend="gl")
         image = GLImage()
-        image.setName('image')
+        image.setName("image")
         image.setColormap(plot.getDefaultColormap())
-        image.getColormap().setName('viridis')
-        #image.setOrigin((2., 1.))
-        #image.setScale((0.5, 1.))
-        #image.setData(numpy.random.random((8000, 8000)).astype(numpy.float32))
+        image.getColormap().setName("viridis")
+        # image.setOrigin((2., 1.))
+        # image.setScale((0.5, 1.))
+        # image.setData(numpy.random.random((8000, 8000)).astype(numpy.float32))
         image.setData(numpy.arange(200).reshape(20, 10).astype(numpy.float32))
         plot.addItem(image)
         plot.setActiveImage(image.getName())
         plot.resetZoom()
         plot.show()
 
-    shape = 1024*4, 512, 512
-    #shape = 2, 3, 4
+    shape = 1024 * 4, 512, 512
+    # shape = 2, 3, 4
     data = numpy.random.random(numpy.prod(shape)).astype(numpy.float32).reshape(shape)
 
     texture = DataTexture(
@@ -980,16 +1023,17 @@ if __name__ == '__main__':
         format_=gl.GL_RED,
         minFilter=gl.GL_LINEAR,
         magFilter=gl.GL_LINEAR,
-        wrap=gl.GL_CLAMP_TO_EDGE)
+        wrap=gl.GL_CLAMP_TO_EDGE,
+    )
 
     plots = []
     for axis in range(3):
-        plot = Plot2D(backend='gl')
-        plot.setGraphTitle('Plot %d' % axis)
+        plot = Plot2D(backend="gl")
+        plot.setGraphTitle("Plot %d" % axis)
         image = GLImageStack()
-        image.setName('stack')
+        image.setName("stack")
         image.setColormap(plot.getDefaultColormap())
-        image.getColormap().setName('viridis')
+        image.getColormap().setName("viridis")
         image.getColormap().setVRange(0, numpy.prod(shape))
         image.setDataTexture(texture)
         image.setSliceAxis(axis)
@@ -1010,5 +1054,5 @@ if __name__ == '__main__':
     timer = qt.QTimer()
     timer.timeout.connect(update)
     timer.start(100)
-    
+
     app.exec_()

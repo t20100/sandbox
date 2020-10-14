@@ -38,29 +38,28 @@ from .. import backend, items, plot
 class TestPlot(unittest.TestCase):
     def testPlot(self):
         class DummyPlot(plot.Plot):
-            def __init__(self, title=''):
+            def __init__(self, title=""):
                 super(DummyPlot, self).__init__(title=title)
                 self._backend = backend.Backend(self)
 
         test = DummyPlot()
-        print('### Create curve ###')
+        print("### Create curve ###")
         curve = items.Curve(y=(1, 2, 2))
-        print('### addItem ###')
+        print("### addItem ###")
         test.axes.left.addItem(curve)
-        print('### change curve visible = False ###')
+        print("### change curve visible = False ###")
         curve.visible = False
-        print('### change curve linewidth ###')
+        print("### change curve linewidth ###")
         curve.linewidth = 2
-        print('### change plot title ###')
-        test.title = 'test plot'
+        print("### change plot title ###")
+        test.title = "test plot"
 
 
 def suite():
     test_suite = unittest.TestSuite()
-    test_suite.addTest(
-        unittest.defaultTestLoader.loadTestsFromTestCase(TestPlot))
+    test_suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TestPlot))
     return test_suite
 
 
-if __name__ == '__main__':
-    unittest.main(defaultTest='suite')
+if __name__ == "__main__":
+    unittest.main(defaultTest="suite")

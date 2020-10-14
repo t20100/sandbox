@@ -54,38 +54,36 @@ class TestNotifier(unittest.TestCase):
         """Function as a listener:
 
         Register, send an event, unregister, send another event."""
+
         def callback(source, event, **kwargs):
             self.listener(source, event, **kwargs)
 
         self.notifier.addListener(callback)
-        self.notifier.notify(event='test', value=1)
+        self.notifier.notify(event="test", value=1)
         self.notifier.removeListener(callback)
-        self.notifier.notify(event='test', value=2)
+        self.notifier.notify(event="test", value=2)
 
         self.assertEqual(len(self.notifications), 1)
-        self.assertEqual(self.notifications[0],
-                         (self.notifier, 'test', {'value': 1}))
+        self.assertEqual(self.notifications[0], (self.notifier, "test", {"value": 1}))
 
     def testListenerMethod(self):
         """Method as a listener:
 
         Register, send an event, unregister, send another event."""
         self.notifier.addListener(self.listener)
-        self.notifier.notify(event='test', value=1)
+        self.notifier.notify(event="test", value=1)
         self.notifier.removeListener(self.listener)
-        self.notifier.notify(event='test', value=2)
+        self.notifier.notify(event="test", value=2)
 
         self.assertEqual(len(self.notifications), 1)
-        self.assertEqual(self.notifications[0],
-                         (self.notifier, 'test', {'value': 1}))
+        self.assertEqual(self.notifications[0], (self.notifier, "test", {"value": 1}))
 
 
 def suite():
     test_suite = unittest.TestSuite()
-    test_suite.addTest(
-        unittest.defaultTestLoader.loadTestsFromTestCase(TestNotifier))
+    test_suite.addTest(unittest.defaultTestLoader.loadTestsFromTestCase(TestNotifier))
     return test_suite
 
 
-if __name__ == '__main__':
-    unittest.main(defaultTest='suite')
+if __name__ == "__main__":
+    unittest.main(defaultTest="suite")

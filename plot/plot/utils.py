@@ -47,6 +47,7 @@ def proxyProperty(component, attribute, setter=True, doc=None):
     :param str doc: The docstring of the property.
     :return: A property
     """
+
     def getter(self):
         instance = getattr(self, component)
         return getattr(instance, attribute)
@@ -55,6 +56,7 @@ def proxyProperty(component, attribute, setter=True, doc=None):
         return property(getter, doc=doc)
 
     else:
+
         def setter(self, value):
             instance = getattr(self, component)
             setattr(instance, attribute, value)

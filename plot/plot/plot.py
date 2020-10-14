@@ -43,11 +43,10 @@ logger = logging.getLogger(__name__)
 class Axis(items.Base):
     """Describe a single axis."""
 
-    SCALES = 'linear', 'log'
+    SCALES = "linear", "log"
     """Supported scales"""
 
-    def __init__(self, label='', scale='linear', limits=(0., 1.),
-                 autoscale=False):
+    def __init__(self, label="", scale="linear", limits=(0.0, 1.0), autoscale=False):
         """Init.
 
         :param str label: Label of the axis
@@ -92,7 +91,7 @@ class Axis(items.Base):
     def autoscale(self, value):
         self._autoscale = bool(value)
 
-    label = items.notifyProperty('_label', str, """Label of the axis.""")
+    label = items.notifyProperty("_label", str, """Label of the axis.""")
 
     @property
     def scale(self):
@@ -102,9 +101,9 @@ class Axis(items.Base):
     @scale.setter
     def scale(self, value):
         assert value in self.SCALES
-        if not hasattr(self, '_scale') or self._scale != value:
+        if not hasattr(self, "_scale") or self._scale != value:
             self._scale = value
-            self._notifySet('scale', value)
+            self._notifySet("scale", value)
 
     @property
     def limits(self):
@@ -116,9 +115,9 @@ class Axis(items.Base):
         assert len(value) == 2
         value = float(value[0]), float(value[1])
         assert value[0] != value[1]
-        if not hasattr(self, '_limits') or self._limits != value:
+        if not hasattr(self, "_limits") or self._limits != value:
             self._limits = value
-            self._notifySet('limits', value)
+            self._notifySet("limits", value)
 
     @property
     def inverted(self):
@@ -137,12 +136,21 @@ class Axis(items.Base):
 class Axes(items.Base):
     """Describe a pair of X and Y axes and its data content."""
 
-    def __init__(self, xaxis=None, yaxis=None,
-                 aspectRatio=False, visible=True,
-                 xlabel='', xscale='linear',
-                 xlimits=(0., 1.), xautoscale=False,
-                 ylabel='', yscale='linear',
-                 ylimits=(0., 1.), yautoscale=False):
+    def __init__(
+        self,
+        xaxis=None,
+        yaxis=None,
+        aspectRatio=False,
+        visible=True,
+        xlabel="",
+        xscale="linear",
+        xlimits=(0.0, 1.0),
+        xautoscale=False,
+        ylabel="",
+        yscale="linear",
+        ylimits=(0.0, 1.0),
+        yautoscale=False,
+    ):
         """Init.
 
         :param Axis xaxis: The X axis to use (for shared axis).
@@ -153,13 +161,19 @@ class Axes(items.Base):
         self.visible = visible
         self.aspectRatio = aspectRatio
 
-        self._x = xaxis if xaxis is not None else Axis(
-            label=xlabel, scale=xscale, limits=xlimits, autoscale=xautoscale)
+        self._x = (
+            xaxis
+            if xaxis is not None
+            else Axis(label=xlabel, scale=xscale, limits=xlimits, autoscale=xautoscale)
+        )
         self._x._addParent(self)
         self._x.addListener(self._axisChanged)
 
-        self._y = yaxis if yaxis is not None else Axis(
-            label=ylabel, scale=yscale, limits=ylimits, autoscale=yautoscale)
+        self._y = (
+            yaxis
+            if yaxis is not None
+            else Axis(label=ylabel, scale=yscale, limits=ylimits, autoscale=yautoscale)
+        )
         self._y._addParent(self)
         self._y.addListener(self._axisChanged)
 
@@ -168,18 +182,22 @@ class Axes(items.Base):
             self.notify(source=source, event=event, **kwargs)  # Broadcast
 
     visible = items.notifyProperty(
-        '_visible', bool,
+        "_visible",
+        bool,
         doc="""Whether the axes are visible or not.
 
         For shared Axis, the shared axis is hidden only if all Axes are hidden.
-        """)
+        """,
+    )
 
     # Axes
 
     # TODO: how to handle both axes shared and keep ratio?
     aspectRatio = items.notifyProperty(
-        '_aspectRatio', bool,
-        doc="""True to keep aspect ratio between axes, False otherwise.""")
+        "_aspectRatio",
+        bool,
+        doc="""True to keep aspect ratio between axes, False otherwise.""",
+    )
 
     # X axis
 
@@ -188,11 +206,11 @@ class Axes(items.Base):
         """The X axis."""
         return self._x
 
-    xlabel = utils.proxyProperty('x', 'label')
-    xlimits = utils.proxyProperty('x', 'limits')
-    xscale = utils.proxyProperty('x', 'scale')
-    xautoscale = utils.proxyProperty('x', 'autoscale')
-    xinverted = utils.proxyProperty('x', 'inverted', setter=False)
+    xlabel = utils.proxyProperty("x", "label")
+    xlimits = utils.proxyProperty("x", "limits")
+    xscale = utils.proxyProperty("x", "scale")
+    xautoscale = utils.proxyProperty("x", "autoscale")
+    xinverted = utils.proxyProperty("x", "inverted", setter=False)
 
     # Y axis
 
@@ -201,11 +219,11 @@ class Axes(items.Base):
         """The y axis."""
         return self._y
 
-    ylabel = utils.proxyProperty('y', 'label')
-    ylimits = utils.proxyProperty('y', 'limits')
-    yscale = utils.proxyProperty('y', 'scale')
-    yautoscale = utils.proxyProperty('y', 'autoscale')
-    yinverted = utils.proxyProperty('y', 'inverted', setter=False)
+    ylabel = utils.proxyProperty("y", "label")
+    ylimits = utils.proxyProperty("y", "limits")
+    yscale = utils.proxyProperty("y", "scale")
+    yautoscale = utils.proxyProperty("y", "autoscale")
+    yinverted = utils.proxyProperty("y", "inverted", setter=False)
 
     # Plot content
 
@@ -216,13 +234,13 @@ class Axes(items.Base):
     def addItem(self, item):
         """Add a PlotItem to the plot"""
         item._setParent(self)
-        item.addListener(self._itemNeedRedisplay, event='needRedisplay')
-        item.addListener(self._itemChanged, event='set')
+        item.addListener(self._itemNeedRedisplay, event="needRedisplay")
+        item.addListener(self._itemChanged, event="set")
 
         self._items.append(item)
-        self.notify(event='addItem', item=item)
+        self.notify(event="addItem", item=item)
         if self.visible:
-            self.notify(event='needRedisplay')
+            self.notify(event="needRedisplay")
         return item
 
     def removeItem(self, item=None):
@@ -234,15 +252,13 @@ class Axes(items.Base):
             try:
                 self._items.remove(item)
             except ValueError:
-                logger.warning(
-                    'Trying to remove an item that is not in the plot')
+                logger.warning("Trying to remove an item that is not in the plot")
             else:
-                item.removeListener(
-                    self._itemNeedRedisplay, event='needRedisplay')
-                item.removeListener(self._itemChanged, event='set')
-                self.notify(event='removeItem', item=item)
+                item.removeListener(self._itemNeedRedisplay, event="needRedisplay")
+                item.removeListener(self._itemChanged, event="set")
+                self.notify(event="removeItem", item=item)
                 if self.visible:
-                    self.notify(event='needRedisplay')
+                    self.notify(event="needRedisplay")
 
     def addCurve(self, *args, **kwargs):
         curve = items.Curve(*args, **kwargs)
@@ -270,7 +286,7 @@ class Plot(items.Base):
     It has a title, a bottom X axis, a left and a right Y axes.
     """
 
-    def __init__(self, title='', grid='none'):
+    def __init__(self, title="", grid="none"):
         """Init.
 
         :param str title: The main title of the plot.
@@ -282,14 +298,13 @@ class Plot(items.Base):
 
         left = Axes()
         right = Axes(xaxis=left.x)  # Twin X
-        self._axes = namedtuple('_Axes', ('left', 'right'))(left, right)
+        self._axes = namedtuple("_Axes", ("left", "right"))(left, right)
         left.addListener(self._axesListener)
         right.addListener(self._axesListener)  # TODO issue with twin axis
 
-    title = items.notifyProperty(
-        '_title', str, doc="""The main title of the plot.""")
+    title = items.notifyProperty("_title", str, doc="""The main title of the plot.""")
 
-    GRIDS = 'none', 'major', 'both'
+    GRIDS = "none", "major", "both"
     """Supported grid types"""
 
     @property
@@ -300,9 +315,9 @@ class Plot(items.Base):
     @grid.setter
     def grid(self, value):
         assert value in self.GRIDS
-        if not hasattr(self, '_grid') or self._grid != value:
+        if not hasattr(self, "_grid") or self._grid != value:
             self._grid = value
-            self._notifySet('grid', value)
+            self._notifySet("grid", value)
 
     @property
     def axes(self):
@@ -319,20 +334,20 @@ class Plot(items.Base):
 
     # Proxies to default axes
 
-    visible = utils.proxyProperty('defaultAxes', 'visible')
-    aspectRatio = utils.proxyProperty('defaultAxes', 'aspectRatio')
+    visible = utils.proxyProperty("defaultAxes", "visible")
+    aspectRatio = utils.proxyProperty("defaultAxes", "aspectRatio")
 
-    xlabel = utils.proxyProperty('defaultAxes', 'xlabel')
-    xlimits = utils.proxyProperty('defaultAxes', 'xlimits')
-    xscale = utils.proxyProperty('defaultAxes', 'xscale')
-    xautoscale = utils.proxyProperty('defaultAxes', 'xautoscale')
-    xinverted = utils.proxyProperty('defaultAxes', 'xinverted', setter=False)
+    xlabel = utils.proxyProperty("defaultAxes", "xlabel")
+    xlimits = utils.proxyProperty("defaultAxes", "xlimits")
+    xscale = utils.proxyProperty("defaultAxes", "xscale")
+    xautoscale = utils.proxyProperty("defaultAxes", "xautoscale")
+    xinverted = utils.proxyProperty("defaultAxes", "xinverted", setter=False)
 
-    ylabel = utils.proxyProperty('defaultAxes', 'ylabel')
-    ylimits = utils.proxyProperty('defaultAxes', 'ylimits')
-    yscale = utils.proxyProperty('defaultAxes', 'yscale')
-    yautoscale = utils.proxyProperty('defaultAxes', 'yautoscale')
-    yinverted = utils.proxyProperty('defaultAxes', 'yinverted', setter=False)
+    ylabel = utils.proxyProperty("defaultAxes", "ylabel")
+    ylimits = utils.proxyProperty("defaultAxes", "ylimits")
+    yscale = utils.proxyProperty("defaultAxes", "yscale")
+    yautoscale = utils.proxyProperty("defaultAxes", "yautoscale")
+    yinverted = utils.proxyProperty("defaultAxes", "yinverted", setter=False)
 
     def addItem(self, *args, **kwargs):
         return self.defaultAxes.addItem(*args, **kwargs)

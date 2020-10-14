@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 # Plot event system base ######################################################
 
+
 class Base(event.Notifier):
     """Base class for classes of plot components.
 
@@ -56,9 +57,9 @@ class Base(event.Notifier):
         :param str attr: The attribute name that was set
         :param value: The new value
         """
-        self.notify(event='set', attr=attr, value=value, **kwargs)
-        if attr == 'visible' or getattr(self, 'visible', True):
-            self.notify(event='needRedisplay')
+        self.notify(event="set", attr=attr, value=value, **kwargs)
+        if attr == "visible" or getattr(self, "visible", True):
+            self.notify(event="needRedisplay")
 
 
 def notifyProperty(name, type_=None, doc=None):
@@ -70,25 +71,30 @@ def notifyProperty(name, type_=None, doc=None):
     :param type type_: Type of the attribute.
     :return: A property
     """
+
     def getter(self):
         return getattr(self, name)
 
     if type_ is not None:
+
         def setter(self, value):
             value = type_(value)
             if not hasattr(self, name) or value != getattr(self, name):
                 setattr(self, name, value)
-                self._notifySet(name.lstrip('_'), value)
+                self._notifySet(name.lstrip("_"), value)
+
     else:
+
         def setter(self, value):
             if not hasattr(self, name) or value != getattr(self, name):
                 setattr(self, name, value)
-                self._notifySet(name.lstrip('_'), value)
+                self._notifySet(name.lstrip("_"), value)
 
     return property(getter, setter, doc=doc)
 
 
 # Items #######################################################################
+
 
 class PlotItem(Base):
     """Base class for items that can be rendered in a plot"""
@@ -107,8 +113,8 @@ class PlotItem(Base):
         self.selectable = selectable
         self.draggable = draggable
         self.visible = visible
-        self.origin = 0., 0.
-        self.scale = 1., 1.
+        self.origin = 0.0, 0.0
+        self.scale = 1.0, 1.0
 
     @property
     def parent(self):
@@ -124,7 +130,8 @@ class PlotItem(Base):
             self._parentRef = None
         elif self._parentRef is not None:
             logger.warning(
-                'This PlotItem already belongs to a Plot, cannot set parent.')
+                "This PlotItem already belongs to a Plot, cannot set parent."
+            )
         else:
             self._parentRef = weakref.ref(parent, self._resetParent)
 
@@ -132,16 +139,18 @@ class PlotItem(Base):
         self._parentRef = None
 
     z = notifyProperty(
-        '_z', int, """The rendering layer to which the item belongs to.""")
+        "_z", int, """The rendering layer to which the item belongs to."""
+    )
 
     selectable = notifyProperty(
-        '_selectable', bool, """Bool, True if the item is selectable.""")
+        "_selectable", bool, """Bool, True if the item is selectable."""
+    )
 
     draggable = notifyProperty(
-        '_draggable', bool, """Bool, True if the item is draggable.""")
+        "_draggable", bool, """Bool, True if the item is draggable."""
+    )
 
-    visible = notifyProperty(
-        '_visible', bool, """Bool, True if the item is visible.""")
+    visible = notifyProperty("_visible", bool, """Bool, True if the item is visible.""")
 
     @property
     def origin(self):
@@ -152,9 +161,9 @@ class PlotItem(Base):
     def origin(self, value):
         assert len(value) == 2
         value = (float(value[0]), float(value[1]))
-        if not hasattr(self, '_origin') or value != self._origin:
+        if not hasattr(self, "_origin") or value != self._origin:
             self._origin = value
-            self._notifySet('origin', value)
+            self._notifySet("origin", value)
 
     @property
     def scale(self):
@@ -165,9 +174,9 @@ class PlotItem(Base):
     def scale(self, value):
         assert len(value) == 2
         value = (float(value[0]), float(value[1]))
-        if not hasattr(self, '_scale') or value != self._scale:
+        if not hasattr(self, "_scale") or value != self._scale:
             self._scale = value
-            self._notifySet('scale', value)
+            self._notifySet("scale", value)
 
     @property
     def bounds(self):
@@ -179,12 +188,7 @@ class PlotItem(Base):
 class Colormap(event.Notifier):
     """Description of a colormap"""
 
-    DEFAULTS = {
-        'cmap': 'grey',
-        'norm': 'linear',
-        'vbegin': None,
-        'vend': None
-    }
+    DEFAULTS = {"cmap": "grey", "norm": "linear", "vbegin": None, "vend": None}
 
     def __init__(self, cmap=None, norm=None, vbegin=None, vend=None):
         """Init.
@@ -198,25 +202,24 @@ class Colormap(event.Notifier):
         """
         super(Colormap, self).__init__()
 
-        self.cmap = cmap if cmap is not None else self.DEFAULTS['cmap']
-        self.norm = norm if norm is not None else self.DEFAULTS['norm']
-        self.vbegin = vbegin if vbegin is not None else self.DEFAULTS['vbegin']
-        self.vend = vend if vend is not None else self.DEFAULTS['vend']
+        self.cmap = cmap if cmap is not None else self.DEFAULTS["cmap"]
+        self.norm = norm if norm is not None else self.DEFAULTS["norm"]
+        self.vbegin = vbegin if vbegin is not None else self.DEFAULTS["vbegin"]
+        self.vend = vend if vend is not None else self.DEFAULTS["vend"]
 
     @classmethod
     def toColormap(cls, desc):
-        """Convert a Colormap, a dict or a str to a Colormap instance.
-        """
+        """Convert a Colormap, a dict or a str to a Colormap instance."""
         if isinstance(desc, Colormap):
             return desc
         elif isinstance(desc, dict):
-            cmap = desc.get('cmap', cls.DEFAULT['cmap'])
-            norm = desc.get('norm', cls.DEFAULT['norm'])
-            vbegin = desc.get('vbegin', cls.DEFAULT['vbegin'])
-            vend = desc.get('vend', cls.DEFAULT['vend'])
+            cmap = desc.get("cmap", cls.DEFAULT["cmap"])
+            norm = desc.get("norm", cls.DEFAULT["norm"])
+            vbegin = desc.get("vbegin", cls.DEFAULT["vbegin"])
+            vend = desc.get("vend", cls.DEFAULT["vend"])
             return Colormap(cmap, norm, vbegin, vend)
         elif isinstance(desc, str):
-            if desc in ('linear', 'log'):
+            if desc in ("linear", "log"):
                 return Colormap(norm=desc)
             else:
                 return Colormap(cmap=desc)
@@ -229,9 +232,9 @@ class Colormap(event.Notifier):
     @cmap.setter
     def cmap(self, value):
         cmap = str(value)
-        if not hasattr(self, '_cmap') or self._cmap != cmap:
+        if not hasattr(self, "_cmap") or self._cmap != cmap:
             self._cmap = cmap
-            self.notify(event='set', attr='cmap', value=cmap)
+            self.notify(event="set", attr="cmap", value=cmap)
 
     @property
     def vbegin(self):
@@ -240,9 +243,9 @@ class Colormap(event.Notifier):
 
     @vbegin.setter
     def vbegin(self, value):
-        if not hasattr(self, '_vbegin') or self._vbegin != value:
+        if not hasattr(self, "_vbegin") or self._vbegin != value:
             self._vbegin = value
-            self.notify(event='set', attr='vbegin', value=value)
+            self.notify(event="set", attr="vbegin", value=value)
 
     @property
     def vend(self):
@@ -251,9 +254,9 @@ class Colormap(event.Notifier):
 
     @vend.setter
     def vend(self, value):
-        if not hasattr(self, '_vend') or self._vend != value:
+        if not hasattr(self, "_vend") or self._vend != value:
             self._vend = value
-            self.notify(event='set', attr='vend', value=value)
+            self.notify(event="set", attr="vend", value=value)
 
     @property
     def norm(self):
@@ -262,10 +265,10 @@ class Colormap(event.Notifier):
 
     @norm.setter
     def norm(self, value):
-        assert value in ('linear', 'log')
-        if not hasattr(self, '_norm') or self._norm != value:
+        assert value in ("linear", "log")
+        if not hasattr(self, "_norm") or self._norm != value:
             self._norm = value
-            self.notify(event='set', attr='norm', value=value)
+            self.notify(event="set", attr="norm", value=value)
 
     @property
     def lut(self):
@@ -283,15 +286,23 @@ class Colormap(event.Notifier):
 
 class Image(PlotItem):
     """2D dataset, either 2D array of 3D array for RGB(A) images."""
-    def __init__(self, data, copy=True,
-                 colormap=None,
-                 origin=(0., 0.), scale=(1., 1.),
-                 z=0, selectable=False, draggable=False,
-                 visible=True):
+
+    def __init__(
+        self,
+        data,
+        copy=True,
+        colormap=None,
+        origin=(0.0, 0.0),
+        scale=(1.0, 1.0),
+        z=0,
+        selectable=False,
+        draggable=False,
+        visible=True,
+    ):
         super(Image, self).__init__(z, selectable, draggable, visible)
         self._colormap = None  # Init private attribute for setter to work
         if colormap is None:
-            colormap = Colormap.DEFAULTS['cmap']
+            colormap = Colormap.DEFAULTS["cmap"]
         self.colormap = colormap
         self.origin = origin
         self.scale = scale
@@ -321,7 +332,7 @@ class Image(PlotItem):
             assert data.dtype in (numpy.uint8,)
 
         self._data = data
-        self._notifySet('data', self._data)
+        self._notifySet("data", self._data)
 
     @property
     def colormap(self):
@@ -333,21 +344,19 @@ class Image(PlotItem):
         value = Colormap.toColormap(value)
         if value != self._colormap:
             if self._colormap is not None:
-                self._colormap.removeListener(
-                    self._colormapListener, event='set')
+                self._colormap.removeListener(self._colormapListener, event="set")
 
             self._colormap = value
 
             if self._colormap is not None:
-                self._colormap.addListener(
-                    self._colormapListener, event='set')
+                self._colormap.addListener(self._colormapListener, event="set")
 
-            self._notifySet('colormap', value)
+            self._notifySet("colormap", value)
 
     def _colormapListener(self, source, event, **kwargs):
         """Listener of colormap to broadcast colormap changes."""
         # TODO: This is a coarse update message
-        self.notifySet('colormap', self.colormap)
+        self.notifySet("colormap", self.colormap)
 
 
 # TODO: a value + colormap variant?, separate class for scatter plot?
@@ -358,36 +367,46 @@ class Curve(PlotItem):
     """
 
     DEFAULTS = {
-        'marker': 'o',
-        'linestyle': '-',
-        'linewidth': 1.,
+        "marker": "o",
+        "linestyle": "-",
+        "linewidth": 1.0,
     }
 
-    def __init__(self, x=None, y=None, xerror=None, yerror=None,
-                 color=(0., 0., 0.),
-                 copy=True,
-                 marker=None, linewidth=None, linestyle=None,
-                 z=0, selectable=False, draggable=False,
-                 visible=True):
+    def __init__(
+        self,
+        x=None,
+        y=None,
+        xerror=None,
+        yerror=None,
+        color=(0.0, 0.0, 0.0),
+        copy=True,
+        marker=None,
+        linewidth=None,
+        linestyle=None,
+        z=0,
+        selectable=False,
+        draggable=False,
+        visible=True,
+    ):
         super(Curve, self).__init__(z, selectable, draggable, visible)
         self.setData(x, y, copy=copy)
         self.setXerror(xerror, copy=copy)
         self.setYerror(yerror, copy=copy)
 
         self.color = color
-        self.marker = marker if marker is not None else self.DEFAULTS['marker']
-        self.linewidth = linewidth if linewidth is not None else \
-            self.DEFAULTS['linewidth']
-        self.linestyle = linestyle if linestyle is not None else \
-            self.DEFAULTS['linestyle']
+        self.marker = marker if marker is not None else self.DEFAULTS["marker"]
+        self.linewidth = (
+            linewidth if linewidth is not None else self.DEFAULTS["linewidth"]
+        )
+        self.linestyle = (
+            linestyle if linestyle is not None else self.DEFAULTS["linestyle"]
+        )
 
-    marker = notifyProperty('_marker', str, doc="Type of markers symbol in:")
+    marker = notifyProperty("_marker", str, doc="Type of markers symbol in:")
 
-    linewidth = notifyProperty(
-        '_linewidth', float, doc="Width of line in pixels.")
+    linewidth = notifyProperty("_linewidth", float, doc="Width of line in pixels.")
 
-    linestyle = notifyProperty(
-        '_linestyle', str, doc="Style of line in: _, ., None.")
+    linestyle = notifyProperty("_linestyle", str, doc="Style of line in: _, ., None.")
 
     @property
     def color(self):
@@ -399,9 +418,9 @@ class Curve(PlotItem):
         # TODO support str colors + array of one color per point + RGB(A)
         assert len(value) == 3
         value = (float(value[0]), float(value[1]), float(value[2]))
-        if not hasattr(self, '_color') or value != self._color:
+        if not hasattr(self, "_color") or value != self._color:
             self._color = value
-            self._notifySet('color', value)
+            self._notifySet("color", value)
 
     def getData(self, copy=True):
         """Return x and y data.
@@ -443,24 +462,23 @@ class Curve(PlotItem):
 
         self._y = y
         self._x = x
-        self._notifySet('data', (x, y), x=x, y=y)
+        self._notifySet("data", (x, y), x=x, y=y)
 
     def setXerror(self, xerror, copy=True):
-        """Set errorbars along the x axis.
-        """
+        """Set errorbars along the x axis."""
         # TODO check and support multiple types
         self._xerror = numpy.array(xerror, copy=copy)
-        self._notifySet('xerror', self._xerror)
+        self._notifySet("xerror", self._xerror)
 
     def setYerror(self, yerror, copy=True):
-        """Set errorbars along the y axis.
-        """
+        """Set errorbars along the y axis."""
         # TODO check and support multiple types
         self._yerror = numpy.array(yerror, copy=copy)
-        self._notifySet('yerror', self._yerror)
+        self._notifySet("yerror", self._yerror)
 
 
 class Shape(PlotItem):
     """2D vector line and fill"""
+
     def __init__(self):
         super(Shape, self).__init__()

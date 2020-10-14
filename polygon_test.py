@@ -44,39 +44,50 @@ _logger = logging.getLogger(__name__)
 
 
 class TestPolygon(PlotWindow):
-    SIZE = 4096 #1024
+    SIZE = 4096  # 1024
 
     def __init__(self, *args, **kwargs):
         super(TestPolygon, self).__init__(*args, **kwargs)
-        self.image = numpy.arange(
-            self.SIZE ** 2, dtype=numpy.float32).reshape(self.SIZE, self.SIZE)
+        self.image = numpy.arange(self.SIZE ** 2, dtype=numpy.float32).reshape(
+            self.SIZE, self.SIZE
+        )
         colormap = {
-            'name': 'temperature',
-            'normalization': 'linear',
-            'autoscale': True,
-            'vmin': 0., 'vmax': 1.}
-        self.addImage(self.image, legend='image', colormap=colormap)
+            "name": "temperature",
+            "normalization": "linear",
+            "autoscale": True,
+            "vmin": 0.0,
+            "vmax": 1.0,
+        }
+        self.addImage(self.image, legend="image", colormap=colormap)
 
         self._mask_colormap = {
-            'name': None,
-            'normalization': 'linear',
-            'autoscale': False,
-            'vmin': 0., 'vmax': 1.,
-            'colors': numpy.array(((0., 0., 0., 0.), (0.5, 0.5, 0.5, 0.5)),
-                                  dtype=numpy.float32)}
+            "name": None,
+            "normalization": "linear",
+            "autoscale": False,
+            "vmin": 0.0,
+            "vmax": 1.0,
+            "colors": numpy.array(
+                ((0.0, 0.0, 0.0, 0.0), (0.5, 0.5, 0.5, 0.5)), dtype=numpy.float32
+            ),
+        }
 
         self.sigPlotSignal.connect(self._handleDraw)
-        self.setInteractiveMode('draw', shape='polygon', color='pink')
+        self.setInteractiveMode("draw", shape="polygon", color="pink")
 
     def _handleDraw(self, event):
-        if event['event'] not in ('drawingProgress', 'drawingFinished'):
+        if event["event"] not in ("drawingProgress", "drawingFinished"):
             return
 
-        points = numpy.array((event['ydata'], event['xdata'])).T
+        points = numpy.array((event["ydata"], event["xdata"])).T
 
         mask = polygon_fill_mask(points, (self.SIZE, self.SIZE))
-        self.addImage(mask, legend='mask', colormap=self._mask_colormap,
-                      replace=False, resetzoom=False)
+        self.addImage(
+            mask,
+            legend="mask",
+            colormap=self._mask_colormap,
+            replace=False,
+            resetzoom=False,
+        )
 
 
 def main(argv=None):
@@ -89,4 +100,5 @@ def main(argv=None):
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(main(sys.argv[1:]))

@@ -89,13 +89,16 @@ from silx.gui.plot.tools.roi import RegionOfInterestManager
 
 if sys.version_info < (3, 6):
     # Require dict being ordered
-    class NonSenseError(BaseException): pass
+    class NonSenseError(BaseException):
+        pass
+
     raise NonSenseError("Python >= 3.6 is required!")
 
 
 logger = logging.getLogger(__name__)
 
 # Define scan parameters
+
 
 class Scan:
     """Description of a tomo scan with a detector.
@@ -108,10 +111,12 @@ class Scan:
     :param str name: name of the scan
     """
 
-    def __init__(self, bin_resolution=(0., 0.), slice_size=0, height_range=(1, None), name=''):
+    def __init__(
+        self, bin_resolution=(0.0, 0.0), slice_size=0, height_range=(1, None), name=""
+    ):
         self.__bin_resolution = float(bin_resolution[0]), float(bin_resolution[1])
         self.__slice_size = int(slice_size)
-        min_, max_= height_range
+        min_, max_ = height_range
         self.__height_range = int(min_), None if max_ is None else int(max_)
 
         self.__name = str(name)
@@ -130,30 +135,30 @@ class Scan:
         """
         return self.__bin_resolution
 
-    def slice_size(self, unit='pixel'):
+    def slice_size(self, unit="pixel"):
         """Returns the size of a horizontal slice.
 
         :param str unit: Unit of the returned value, either 'pixel' or 'meter'
         :rtype: Union[int,float]
         :raises ValueError: If unit is not supported
         """
-        if unit == 'pixel':
+        if unit == "pixel":
             return self.__slice_size
-        elif unit == 'meter':
+        elif unit == "meter":
             return self.__slice_size * self.bin_resolution()[1]
         else:
             raise ValueError("Unsupported unit")
 
-    def height_range(self, unit='pixel'):
+    def height_range(self, unit="pixel"):
         """Returns the range of height of the reconstructed volume (min, max)
 
         :param str unit: Unit of the returned values, either 'pixel' or 'meter'
         :rtype: List[Union[int,float,None]]
         :raises ValueError: If unit is not supported
         """
-        if unit == 'pixel':
+        if unit == "pixel":
             return self.__height_range
-        elif unit == 'meter':
+        elif unit == "meter":
             res = self.bin_resolution()[0]
             min_, max_ = self.__height_range
             return min_ * res, None if max_ is None else max_ * res
@@ -163,6 +168,7 @@ class Scan:
 
 # ROI
 
+
 class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
     """A ROI identifying a rectangle in a 2D plot.
 
@@ -170,8 +176,8 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
     center to translate the full ROI.
     """
 
-    ICON = 'add-shape-rectangle'
-    NAME = 'rectangle ROI'
+    ICON = "add-shape-rectangle"
+    NAME = "rectangle ROI"
     SHORT_NAME = "rectangle"
     """Metadata for this kind of ROI"""
 
@@ -187,24 +193,19 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
     def __init__(self, parent=None):
         roi.HandleBasedROI.__init__(self, parent=parent)
         items.LineMixIn.__init__(self)
-        self.__size = 0., 0.
-        self.__center = 0., 0.
+        self.__size = 0.0, 0.0
+        self.__center = 0.0, 0.0
 
         self._handleLeft = self.addHandle()
-        self._handleLeft._setConstraint(
-            WeakMethodProxy(self.__leftConstraint))
+        self._handleLeft._setConstraint(WeakMethodProxy(self.__leftConstraint))
         self._handleRight = self.addHandle()
-        self._handleRight._setConstraint(
-            WeakMethodProxy(self.__rightConstraint))
+        self._handleRight._setConstraint(WeakMethodProxy(self.__rightConstraint))
         self._handleTop = self.addHandle()
-        self._handleTop._setConstraint(
-            WeakMethodProxy(self.__topConstraint))
+        self._handleTop._setConstraint(WeakMethodProxy(self.__topConstraint))
         self._handleBottom = self.addHandle()
-        self._handleBottom._setConstraint(
-            WeakMethodProxy(self.__bottomConstraint))
+        self._handleBottom._setConstraint(WeakMethodProxy(self.__bottomConstraint))
         self._handleCenter = self.addTranslateHandle()
-        self._handleCenter._setConstraint(
-            WeakMethodProxy(self.__centerConstraint))
+        self._handleCenter._setConstraint(WeakMethodProxy(self.__centerConstraint))
         self._handleLabel = self.addLabelHandle()
 
         shape = items.Shape("rectangle")
@@ -360,9 +361,12 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
         if handle is self._handleCenter:
             self.setCenter(current)
         elif handle in (self._handleLeft, self._handleRight):
-            self.setSize((
-                2. * abs(self.getCenter()[0] - handle.getPosition()[0]),
-                self.getSize()[1]))
+            self.setSize(
+                (
+                    2.0 * abs(self.getCenter()[0] - handle.getPosition()[0]),
+                    self.getSize()[1],
+                )
+            )
         else:  # handleTop of _handleBottom
             xcenter = self.getCenter()[0]
             width = self.getSize()[0]
@@ -375,13 +379,13 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
         origin = self.getOrigin()
         w, h = self.getSize()
         params = origin[0], origin[1], w, h
-        params = 'origin: %f %f; width: %f; height: %f' % params
+        params = "origin: %f %f; width: %f; height: %f" % params
         return "%s(%s)" % (self.__class__.__name__, params)
 
 
 class ROI3D(qt.QObject):
 
-    SCAN_CHANGED = 'scanChanged'
+    SCAN_CHANGED = "scanChanged"
     """Event emitted when the scan info has changed"""
 
     sigItemChanged = qt.Signal(object)
@@ -394,29 +398,29 @@ class ROI3D(qt.QObject):
         super().__init__(parent)
 
         self.__currentSlices = 0, 0, 0
-        self.__name = ''
+        self.__name = ""
         self.__visible = True
         self.__scan = None
 
         self.__width = 0
         self.__height = 0
-        self.__center = 0., 0., 0.
+        self.__center = 0.0, 0.0, 0.0
 
         self.__rois = {}
-        self.__rois['axial'] = roi.CircleROI()
-        self.__rois['axial'].sigRegionChanged.connect(self.__axialChanged)
+        self.__rois["axial"] = roi.CircleROI()
+        self.__rois["axial"].sigRegionChanged.connect(self.__axialChanged)
 
-        self.__rois['front'] = RectangleROI2()
-        self.__rois['front'].sigRegionChanged.connect(self.__frontChanged)
-        self.__rois['front'].sigHandleDragged.connect(self.__markerDragged)
+        self.__rois["front"] = RectangleROI2()
+        self.__rois["front"].sigRegionChanged.connect(self.__frontChanged)
+        self.__rois["front"].sigHandleDragged.connect(self.__markerDragged)
 
-        self.__rois['side'] = RectangleROI2()
-        self.__rois['side'].sigRegionChanged.connect(self.__sideChanged)
-        self.__rois['side'].sigHandleDragged.connect(self.__markerDragged)
+        self.__rois["side"] = RectangleROI2()
+        self.__rois["side"].sigRegionChanged.connect(self.__sideChanged)
+        self.__rois["side"].sigHandleDragged.connect(self.__markerDragged)
 
         for roiItem in self.__rois.values():
             roiItem.setName(self.getName())
-            roiItem.setColor('pink')
+            roiItem.setColor("pink")
             roiItem.setLineWidth(2)
             roiItem.setEditable(True)
 
@@ -458,9 +462,10 @@ class ROI3D(qt.QObject):
         if scan != self.__scan:
             self.__scan = scan
             # Update ROI3D
-            self.setWidth(scan.slice_size(unit='meter'))
+            self.setWidth(scan.slice_size(unit="meter"))
             self.setHeight(
-                numpy.clip(self.getHeight(), *scan.height_range(unit='meter')))
+                numpy.clip(self.getHeight(), *scan.height_range(unit="meter"))
+            )
             self.sigItemChanged.emit(self.SCAN_CHANGED)
 
     def getROI(self, face):
@@ -474,41 +479,41 @@ class ROI3D(qt.QObject):
         self.__currentSlices = x, y, z
         ox, oy, oz = self.getOriginCorner()
         fx, fy, fz = self.getFarthestCorner()
-        in_color = 'pink'
+        in_color = "pink"
         out_color = rgba(in_color)[:3] + (0.75,)
-        in_style = '-'
-        out_style = '--'
+        in_style = "-"
+        out_style = "--"
 
-        self.__rois['side'].setColor(in_color if ox <= x <= fx else out_color)
-        self.__rois['side'].setLineStyle(in_style if ox <= x <= fx else out_style)
+        self.__rois["side"].setColor(in_color if ox <= x <= fx else out_color)
+        self.__rois["side"].setLineStyle(in_style if ox <= x <= fx else out_style)
 
-        self.__rois['front'].setColor(in_color if oy <= y <= fy else out_color)
-        self.__rois['front'].setLineStyle(in_style if oy <= y <= fy else out_style)
+        self.__rois["front"].setColor(in_color if oy <= y <= fy else out_color)
+        self.__rois["front"].setLineStyle(in_style if oy <= y <= fy else out_style)
 
-        self.__rois['axial'].setColor(in_color if oz <= z <= fz else out_color)
-        self.__rois['axial'].setLineStyle(in_style if oz <= z <= fz else out_style)
+        self.__rois["axial"].setColor(in_color if oz <= z <= fz else out_color)
+        self.__rois["axial"].setLineStyle(in_style if oz <= z <= fz else out_style)
 
     def getCurrentSlicePosition(self):
         return self.__currentSlices
 
     def __axialChanged(self):
-        cx, cy = self.__rois['axial'].getCenter()
+        cx, cy = self.__rois["axial"].getCenter()
         cz = self.getCenter()[2]
-        self.setWidth(2 * self.__rois['axial'].getRadius())
+        self.setWidth(2 * self.__rois["axial"].getRadius())
         self.setCenter(cx, cy, cz)
 
     def __frontChanged(self):
-        cx, cz = self.__rois['front'].getCenter()
+        cx, cz = self.__rois["front"].getCenter()
         cy = self.getCenter()[1]
-        width, height = self.__rois['front'].getSize()
+        width, height = self.__rois["front"].getSize()
         self.setHeight(height)
         self.setWidth(width)
         self.setCenter(cx, cy, cz)
 
     def __sideChanged(self):
-        cy, cz = self.__rois['side'].getCenter()
+        cy, cz = self.__rois["side"].getCenter()
         cx = self.getCenter()[0]
-        width, height = self.__rois['side'].getSize()
+        width, height = self.__rois["side"].getSize()
         self.setHeight(height)
         self.setWidth(width)
         self.setCenter(cx, cy, cz)
@@ -519,12 +524,12 @@ class ROI3D(qt.QObject):
     def __update(self):
         cx, cy, cz = self.getCenter()
 
-        self.__rois['axial'].setRadius(self.getWidth() / 2)
-        self.__rois['axial'].setCenter((cx, cy))
-        self.__rois['front'].setSize((self.getWidth(), self.getHeight()))
-        self.__rois['front'].setCenter((cx, cz))
-        self.__rois['side'].setSize((self.getWidth(), self.getHeight()))
-        self.__rois['side'].setCenter((cy, cz))
+        self.__rois["axial"].setRadius(self.getWidth() / 2)
+        self.__rois["axial"].setCenter((cx, cy))
+        self.__rois["front"].setSize((self.getWidth(), self.getHeight()))
+        self.__rois["front"].setCenter((cx, cz))
+        self.__rois["side"].setSize((self.getWidth(), self.getHeight()))
+        self.__rois["side"].setCenter((cy, cz))
 
         self.setCurrentSlicePosition(*self.getCurrentSlicePosition())  # sync color
 
@@ -558,19 +563,18 @@ class ROI3D(qt.QObject):
     def getOriginCorner(self):
         cx, cy, cz = self.getCenter()
         width, height = self.getWidth(), self.getHeight()
-        return cx - width / 2., cy - width / 2., cz - height / 2.
+        return cx - width / 2.0, cy - width / 2.0, cz - height / 2.0
 
     def getFarthestCorner(self):
         cx, cy, cz = self.getCenter()
         width, height = self.getWidth(), self.getHeight()
-        return cx + width / 2., cy + width / 2., cz + height / 2.
-
+        return cx + width / 2.0, cy + width / 2.0, cz + height / 2.0
 
 
 # 3D ROI table widget
 
-class ROI3DTableWidgetTypeItemDelegate(qt.QStyledItemDelegate):
 
+class ROI3DTableWidgetTypeItemDelegate(qt.QStyledItemDelegate):
     def __init__(self, parent=None, items={}):
         super().__init__(parent)
         self.__items = items
@@ -612,17 +616,21 @@ class ROI3DTableWidget(qt.QTableWidget):
 
         self._types = types
 
-        headers = ['Name', 'Type', 'Vertical Range', 'Rotation Center', '']
+        headers = ["Name", "Type", "Vertical Range", "Rotation Center", ""]
         self.setColumnCount(len(headers))
         self.setHorizontalHeaderLabels(headers)
 
         horizontalHeader = self.horizontalHeader()
         horizontalHeader.setDefaultAlignment(qt.Qt.AlignLeft)
         horizontalHeader.setSectionResizeMode(self.NAME_COL, qt.QHeaderView.Interactive)
-        horizontalHeader.setSectionResizeMode(self.TYPE_COL, qt.QHeaderView.ResizeToContents)
+        horizontalHeader.setSectionResizeMode(
+            self.TYPE_COL, qt.QHeaderView.ResizeToContents
+        )
         horizontalHeader.setSectionResizeMode(self.Z_COL, qt.QHeaderView.Stretch)
         horizontalHeader.setSectionResizeMode(self.CENTER_COL, qt.QHeaderView.Stretch)
-        horizontalHeader.setSectionResizeMode(self.WIDGETS_COL, qt.QHeaderView.ResizeToContents)
+        horizontalHeader.setSectionResizeMode(
+            self.WIDGETS_COL, qt.QHeaderView.ResizeToContents
+        )
 
         verticalHeader = self.verticalHeader()
         verticalHeader.setVisible(False)
@@ -637,7 +645,9 @@ class ROI3DTableWidget(qt.QTableWidget):
         self.itemChanged.connect(self.__itemChanged)
         self.currentCellChanged.connect(self.__currentCellChanged)
 
-    def __currentCellChanged(self, currentRow, currentColumn, previousRow, previousColumn):
+    def __currentCellChanged(
+        self, currentRow, currentColumn, previousRow, previousColumn
+    ):
         if previousRow != -1:
             roi = self.getROI3D()[previousRow]
             roi.setLineWidth(2)
@@ -662,19 +672,19 @@ class ROI3DTableWidget(qt.QTableWidget):
             if scan is not None:
                 roi.setScan(scan)
         else:
-            logger.error('Unhandled column %d', column)
+            logger.error("Unhandled column %d", column)
 
     def _updateDescription(self, roi):
         cx, cy, cz = roi.getCenter()
         height = roi.getHeight()
-        z_min = cz - height / 2.
+        z_min = cz - height / 2.0
         z_max = z_min + height
 
         row = self.getROI3D().index(roi)
         item = self.item(row, self.Z_COL)
-        item.setText('[%g, %g]' % (z_min, z_max))
+        item.setText("[%g, %g]" % (z_min, z_max))
         item = self.item(row, self.CENTER_COL)
-        item.setText('(%g, %g)' % (cx, cy))
+        item.setText("(%g, %g)" % (cx, cy))
 
     def setCurrentSlicePosition(self, x, y, z):
         for roi in self.getROI3D():
@@ -700,8 +710,7 @@ class ROI3DTableWidget(qt.QTableWidget):
         elif event == items.ItemChangedType.VISIBLE:
             row = self.getROI3D().index(roi)
             item = self.item(row, self.NAME_COL)
-            item.setCheckState(
-                qt.Qt.Checked if roi.isVisible() else qt.Qt.Unchecked)
+            item.setCheckState(qt.Qt.Checked if roi.isVisible() else qt.Qt.Unchecked)
 
     def getROI3D(self):
         """Returns the list of 3D ROIs in the table.
@@ -746,11 +755,9 @@ class ROI3DTableWidget(qt.QTableWidget):
         # Populate row
         # Name and visible
         item = qt.QTableWidgetItem(roi.getName())
-        item.setFlags(
-            baseFlags | qt.Qt.ItemIsEditable | qt.Qt.ItemIsUserCheckable)
+        item.setFlags(baseFlags | qt.Qt.ItemIsEditable | qt.Qt.ItemIsUserCheckable)
         item.setData(qt.Qt.UserRole, roi)
-        item.setCheckState(
-            qt.Qt.Checked if roi.isVisible() else qt.Qt.Unchecked)
+        item.setCheckState(qt.Qt.Checked if roi.isVisible() else qt.Qt.Unchecked)
         self.setItem(row, self.NAME_COL, item)
 
         # Type
@@ -773,12 +780,12 @@ class ROI3DTableWidget(qt.QTableWidget):
 
         # Buttons: Pointing and delete
         centerBtn = qt.QToolButton()
-        centerBtn.setIcon(icons.getQIcon('normal'))
+        centerBtn.setIcon(icons.getQIcon("normal"))
         centerBtn.setToolTip("Center the plots on the center of the ROI")
         centerBtn.clicked.connect(functools.partial(self.__centerROI3D, roi))
 
         delBtn = qt.QToolButton()
-        delBtn.setIcon(icons.getQIcon('remove'))
+        delBtn.setIcon(icons.getQIcon("remove"))
         delBtn.setToolTip("Remove this ROI")
         delBtn.clicked.connect(functools.partial(self.removeROI3D, roi))
 
@@ -806,32 +813,32 @@ class ROI3DTableWidget(qt.QTableWidget):
 
 # Main window
 
+
 class SliceModel(qt.QObject):
     """Handle current state of a slice"""
 
     sigCurrentIndexChanged = qt.Signal(int)
     """Signal emitted when slice index changed"""
 
-    AXIAL = dict(title='Axial',
-                 axis='Z',
-                 xaxis='X',
-                 yaxis='Y')
+    AXIAL = dict(title="Axial", axis="Z", xaxis="X", yaxis="Y")
 
-    FRONT = dict(title='Front',
-                 axis='Y',
-                 xaxis='X',
-                 yaxis='Z')
+    FRONT = dict(title="Front", axis="Y", xaxis="X", yaxis="Z")
 
-    SIDE = dict(title='Side',
-                axis='X',
-                xaxis='Y',
-                yaxis='Z')
+    SIDE = dict(title="Side", axis="X", xaxis="Y", yaxis="Z")
 
     def __init__(
-            self, title='Slice', axis='Index', xaxis='X', yaxis='Y', unit='mm',
-            origin=(0., 0.), scale=(1., 1.),
-            range_=(0, 0), normalization=(0., 1.),
-            dataProvider=None):
+        self,
+        title="Slice",
+        axis="Index",
+        xaxis="X",
+        yaxis="Y",
+        unit="mm",
+        origin=(0.0, 0.0),
+        scale=(1.0, 1.0),
+        range_=(0, 0),
+        normalization=(0.0, 1.0),
+        dataProvider=None,
+    ):
         super().__init__()
         self.__title = title
         self.__axis = axis
@@ -897,11 +904,11 @@ class SliceModel(qt.QObject):
 
     def getXAxisTitle(self) -> str:
         """Returns the title to use for the plot X axis"""
-        return '%s (%s)' % (self.getXAxisName(), self.getUnit())
+        return "%s (%s)" % (self.getXAxisName(), self.getUnit())
 
     def getYAxisTitle(self) -> str:
         """Returns the title to use for the plot Y axis"""
-        return '%s (%s)' % (self.getYAxisName(), self.getUnit())
+        return "%s (%s)" % (self.getYAxisName(), self.getUnit())
 
     # Dynamic information
 
@@ -943,11 +950,12 @@ class SliceModel(qt.QObject):
 
     def getPlotTitle(self) -> str:
         """Returns title to use for plot"""
-        return '%s %g %s (slice %d)' % (
+        return "%s %g %s (slice %d)" % (
             self.getTitle(),
             self.getSlicePosition(),
             self.getUnit(),
-            self.getCurrentIndex())
+            self.getCurrentIndex(),
+        )
 
 
 class SlicePlot(plot.PlotWidget):
@@ -960,9 +968,9 @@ class SlicePlot(plot.PlotWidget):
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.setFocus(qt.Qt.OtherFocusReason)
 
-        self.setDataBackgroundColor('white')
+        self.setDataBackgroundColor("white")
         self.setKeepDataAspectRatio(True)
-        self.setInteractiveMode('pan')
+        self.setInteractiveMode("pan")
         self.setAxesMargins(0.15, 0.1, 0.01, 0.15)
 
         self.__model = None
@@ -974,7 +982,7 @@ class SlicePlot(plot.PlotWidget):
 
     def focusOutEvent(self, event):
         super().focusOutEvent(event)
-        self.setBackgroundColor('white')
+        self.setBackgroundColor("white")
 
     def keyPressEvent(self, event):
         model = self.getModel()
@@ -1005,13 +1013,12 @@ class SlicePlot(plot.PlotWidget):
         :param SliceModel model:
         """
         if self.__model is not None:
-            self.__model.sigCurrentIndexChanged.disconnect(
-                self.__sliceIndexChanged)
+            self.__model.sigCurrentIndexChanged.disconnect(self.__sliceIndexChanged)
 
         self.__model = model
 
         if model is None:
-            xlabel, ylabel = '', ''
+            xlabel, ylabel = "", ""
         else:
             xlabel = model.getXAxisTitle()
             ylabel = model.getYAxisTitle()
@@ -1033,12 +1040,14 @@ class SlicePlot(plot.PlotWidget):
     def refreshPlot(self):
         """Update plotted image and title"""
         model = self.getModel()
-        self.addImage(model.getData(),
-                      scale=model.getSliceScale(),
-                      origin=model.getSliceOrigin(),
-                      legend='image',
-                      resetzoom=False,
-                      copy=False)
+        self.addImage(
+            model.getData(),
+            scale=model.getSliceScale(),
+            origin=model.getSliceOrigin(),
+            legend="image",
+            resetzoom=False,
+            copy=False,
+        )
         self.setGraphTitle(model.getPlotTitle())
 
     def addXMarkerItem(self, *args, **kwargs):
@@ -1106,7 +1115,7 @@ class SliceBrowser(HorizontalSliderWithBrowser):
 
 class VolumeView(qt.QMainWindow):
     """3D volume slice viewer
-    
+
     :param QWidget parent:
     :param Union[str,None] backend: The plot backend to use
     """
@@ -1117,8 +1126,8 @@ class VolumeView(qt.QMainWindow):
         self.__scans = tuple(scans)
 
         self.__roi_index = 0
-        self.__resolution = 1., 1., 1.
-        self.__origin = 0., 0., 0.
+        self.__resolution = 1.0, 1.0, 1.0
+        self.__origin = 0.0, 0.0, 0.0
         self.__data = None
 
         self.__handleMarker = True
@@ -1126,28 +1135,34 @@ class VolumeView(qt.QMainWindow):
 
         # Shared colormap
         self._colormap = Colormap()
-        self._colormap.setVRange(-0.05, 0.05)  # TODO make autoscale according to whole stack, not image
+        self._colormap.setVRange(
+            -0.05, 0.05
+        )  # TODO make autoscale according to whole stack, not image
 
         # Create ROI action
         self._createPolygonROIAction = qt.QAction()
-        self._createPolygonROIAction.setIcon(icons.getQIcon('add-shape-polygon'))
+        self._createPolygonROIAction.setIcon(icons.getQIcon("add-shape-polygon"))
         self._createPolygonROIAction.setText("Add Selections")
         self._createPolygonROIAction.setToolTip(
-            'Create a new selection by selecting a polygon area on a slice')
+            "Create a new selection by selecting a polygon area on a slice"
+        )
         self._createPolygonROIAction.setCheckable(True)
         self._createPolygonROIAction.setChecked(False)
         self._createPolygonROIAction.triggered.connect(
-            self.__createPolygonROIActionTriggered)
+            self.__createPolygonROIActionTriggered
+        )
 
         self._createDrawnROIAction = qt.QAction()
-        self._createDrawnROIAction.setIcon(icons.getQIcon('add-shape-unknown'))
+        self._createDrawnROIAction.setIcon(icons.getQIcon("add-shape-unknown"))
         self._createDrawnROIAction.setText("Add Selections")
         self._createDrawnROIAction.setToolTip(
-            'Create a new selection by drawing on a slice')
+            "Create a new selection by drawing on a slice"
+        )
         self._createDrawnROIAction.setCheckable(True)
         self._createDrawnROIAction.setChecked(False)
         self._createDrawnROIAction.triggered.connect(
-            self.__createDrawnROIActionTriggered)
+            self.__createDrawnROIActionTriggered
+        )
 
         # Slice model
         self._axialSlice, self._frontSlice, self._sideSlice = None, None, None
@@ -1161,62 +1176,80 @@ class VolumeView(qt.QMainWindow):
         self.__markers = []
 
         self._axialPlot = SlicePlot(
-            parent=self, backend=backend, model=self._axialSlice)
+            parent=self, backend=backend, model=self._axialSlice
+        )
         self._axialPlot.setDefaultColormap(self._colormap)
-        self.__markers.extend([
-            self._axialPlot.addXMarkerItem(0, legend='side-marker', text='side'),
-            self._axialPlot.addYMarkerItem(0, legend='front-marker', text='front')])
+        self.__markers.extend(
+            [
+                self._axialPlot.addXMarkerItem(0, legend="side-marker", text="side"),
+                self._axialPlot.addYMarkerItem(0, legend="front-marker", text="front"),
+            ]
+        )
 
         self._frontPlot = SlicePlot(
-            parent=self, backend=backend, model=self._frontSlice)
+            parent=self, backend=backend, model=self._frontSlice
+        )
         self._frontPlot.setDefaultColormap(self._colormap)
-        self.__markers.extend([
-            self._frontPlot.addXMarkerItem(0, legend='side-marker', text='side'),
-            self._frontPlot.addYMarkerItem(0, legend='axial-marker', text='axial')])
+        self.__markers.extend(
+            [
+                self._frontPlot.addXMarkerItem(0, legend="side-marker", text="side"),
+                self._frontPlot.addYMarkerItem(0, legend="axial-marker", text="axial"),
+            ]
+        )
 
-        self._sidePlot = SlicePlot(
-            parent=self, backend=backend, model=self._sideSlice)
+        self._sidePlot = SlicePlot(parent=self, backend=backend, model=self._sideSlice)
         self._sidePlot.setDefaultColormap(self._colormap)
-        self.__markers.extend([
-            self._sidePlot.addXMarkerItem(0, legend='front-marker', text='front'),
-            self._sidePlot.addYMarkerItem(0, legend='axial-marker', text='axial')])
+        self.__markers.extend(
+            [
+                self._sidePlot.addXMarkerItem(0, legend="front-marker", text="front"),
+                self._sidePlot.addYMarkerItem(0, legend="axial-marker", text="axial"),
+            ]
+        )
 
         self._roiManagers = {
-            'axial': RegionOfInterestManager(self._axialPlot),
-            'front': RegionOfInterestManager(self._frontPlot),
-            'side': RegionOfInterestManager(self._sidePlot),
-            }
+            "axial": RegionOfInterestManager(self._axialPlot),
+            "front": RegionOfInterestManager(self._frontPlot),
+            "side": RegionOfInterestManager(self._sidePlot),
+        }
 
         # Sync
         self._axialPlot.sigInteractiveModeChanged.connect(
-            self.__axialPlotInteractiveModeChanged)
+            self.__axialPlotInteractiveModeChanged
+        )
 
         for plot in (self._axialPlot, self._frontPlot, self._sidePlot):
             plot.sigPlotSignal.connect(self.__plotChanged)
 
         for marker in self.__markers:
-            dim = ('axial', 'front', 'side').index(marker.getText())
+            dim = ("axial", "front", "side").index(marker.getText())
             marker._setConstraint(functools.partial(self.__lineMarkerConstraint, dim))
             marker._setDraggable(True)
-            marker.setColor('pink')
-            marker.setLineStyle('--')
+            marker.setColor("pink")
+            marker.setLineStyle("--")
             marker.sigItemChanged.connect(self.__lineMarkerChanged)
 
         self.__update()  # Update models
 
         # Axes constraints
         self._constraints = [
-            SyncAxes(axes, syncLimits=False, syncScale=True,
-                     syncDirection=True, syncCenter=True, syncZoom=True)
+            SyncAxes(
+                axes,
+                syncLimits=False,
+                syncScale=True,
+                syncDirection=True,
+                syncCenter=True,
+                syncZoom=True,
+            )
             for axes in (
                 [self._axialPlot.getXAxis(), self._frontPlot.getXAxis()],
                 [self._frontPlot.getYAxis(), self._sidePlot.getYAxis()],
-                [self._axialPlot.getYAxis(), self._sidePlot.getXAxis()])
-            ]
+                [self._axialPlot.getYAxis(), self._sidePlot.getXAxis()],
+            )
+        ]
 
         # colorbar
         self._colorbar = ColorBarWidget(parent=self)
-        #self._colorbar.setColormap(self._colormap)
+        # self._colorbar.setColormap(self._colormap)
         self._colorbar.setPlot(self._axialPlot)
         self._colorbar.setLegend("Data")
 
@@ -1243,17 +1276,18 @@ class VolumeView(qt.QMainWindow):
 
         self._scanComboBox = qt.QComboBox()
         self._scanComboBox.setToolTip(
-            'Select the default scan to use for new selections')
+            "Select the default scan to use for new selections"
+        )
         for scan in self.getScans():
             self._scanComboBox.addItem(scan.name(), scan)
 
-        roiGroupBox = qt.QGroupBox('Scan selection')
+        roiGroupBox = qt.QGroupBox("Scan selection")
         layout = qt.QVBoxLayout(roiGroupBox)
         layout.addWidget(self._roitable)
         hlayout = qt.QHBoxLayout()
         hlayout.addWidget(createPolygonROIBtn)
         hlayout.addWidget(createDrawnROIBtn)
-        hlayout.addWidget(qt.QLabel('Default:'))
+        hlayout.addWidget(qt.QLabel("Default:"))
         hlayout.addWidget(self._scanComboBox)
         hlayout.addStretch(1)
         layout.addLayout(hlayout)
@@ -1272,34 +1306,38 @@ class VolumeView(qt.QMainWindow):
 
         layout.addWidget(self._axialPlot, 0, 0)
         layout.addLayout(options_layout, 0, 1, qt.Qt.AlignLeft)
-        #layout.addWidget(self._colorbar, 0, 1, qt.Qt.AlignLeft)
+        # layout.addWidget(self._colorbar, 0, 1, qt.Qt.AlignLeft)
         layout.addWidget(self._frontPlot, 1, 0)
         layout.addWidget(self._sidePlot, 1, 1)
 
         form = qt.QFormLayout()
         layout.addLayout(form, 3, 0, 1, 2)
-        title = "%s (along %s)" % (self._axialSlice.getTitle(),
-                                   self._axialSlice.getAxisName())
+        title = "%s (along %s)" % (
+            self._axialSlice.getTitle(),
+            self._axialSlice.getAxisName(),
+        )
         form.addRow(title, self._axialBrowser)
 
-        title = "%s (along %s)" % (self._frontSlice.getTitle(),
-                                   self._frontSlice.getAxisName())
+        title = "%s (along %s)" % (
+            self._frontSlice.getTitle(),
+            self._frontSlice.getAxisName(),
+        )
         form.addRow(title, self._frontBrowser)
 
-        title = "%s (along %s)" % (self._sideSlice.getTitle(),
-                                   self._sideSlice.getAxisName())
+        title = "%s (along %s)" % (
+            self._sideSlice.getTitle(),
+            self._sideSlice.getAxisName(),
+        )
         form.addRow(title, self._sideBrowser)
-        
+
         # Toolbars
         toolbar = qt.QToolBar(self)
         self.addToolBar(qt.Qt.TopToolBarArea, toolbar)
 
-        action = plot_actions.mode.ZoomModeAction(
-            parent=self, plot=self._axialPlot)
+        action = plot_actions.mode.ZoomModeAction(parent=self, plot=self._axialPlot)
         toolbar.addAction(action)
 
-        action = plot_actions.mode.PanModeAction(
-            parent=self, plot=self._axialPlot)
+        action = plot_actions.mode.PanModeAction(parent=self, plot=self._axialPlot)
         toolbar.addAction(action)
 
         toolbar.addAction(self._createPolygonROIAction)
@@ -1307,13 +1345,13 @@ class VolumeView(qt.QMainWindow):
 
         toolbar.addSeparator()
 
-        action = plot_actions.control.ResetZoomAction(
-            parent=self, plot=self._axialPlot)
+        action = plot_actions.control.ResetZoomAction(parent=self, plot=self._axialPlot)
         action.triggered.connect(self.resetZoom)
         toolbar.addAction(action)
 
-        toolbar.addAction(plot_actions.control.ColormapAction(
-            parent=self, plot=self._axialPlot))
+        toolbar.addAction(
+            plot_actions.control.ColormapAction(parent=self, plot=self._axialPlot)
+        )
 
     def __axialPlotInteractiveModeChanged(self, source):
         """Synchronize interactive mode between plots"""
@@ -1333,15 +1371,15 @@ class VolumeView(qt.QMainWindow):
     def __lineMarkerChanged(self, event):
         if self.__handleMarker and event is items.ItemChangedType.POSITION:
             marker = self.sender()
-            face = marker.getLegend().split('-')[0]
+            face = marker.getLegend().split("-")[0]
 
             x, y = marker.getPosition()
             position = y if x is None else x
-            if face == 'side':
+            if face == "side":
                 self._sideSlice.setSlicePosition(position)
-            elif face == 'front':
+            elif face == "front":
                 self._frontSlice.setSlicePosition(position)
-            elif face == 'axial':
+            elif face == "axial":
                 self._axialSlice.setSlicePosition(position)
 
     def __lineMarkerConstraint(self, dim, x, y):
@@ -1355,63 +1393,79 @@ class VolumeView(qt.QMainWindow):
         """Handle create ROI Action"""
         if checked:
             self._axialPlot.setInteractiveMode(
-                mode='select-draw',
-                color='pink',
-                shape='polygon',
-                label='drawroi',
+                mode="select-draw",
+                color="pink",
+                shape="polygon",
+                label="drawroi",
                 zoomOnWheel=True,
-                source=self._createPolygonROIAction)
+                source=self._createPolygonROIAction,
+            )
 
     def __createDrawnROIActionTriggered(self, checked=False):
         """Handle create ROI Action"""
         if checked:
             self._axialPlot.setInteractiveMode(
-                mode='select-draw',
-                color=(0., 0., 0., 0.),
-                shape='polylines',
-                label='drawroi',
+                mode="select-draw",
+                color=(0.0, 0.0, 0.0, 0.0),
+                shape="polylines",
+                label="drawroi",
                 zoomOnWheel=True,
-                source=self._createDrawnROIAction)
+                source=self._createDrawnROIAction,
+            )
 
     def __plotChanged(self, event):
         """Handle signal from the plots"""
         if self._createDrawnROIAction.isChecked():
-            if event['event'] == 'drawingProgress':
+            if event["event"] == "drawingProgress":
                 plot = self.sender()
                 self.__newROIShape = plot.addShapeItem(
-                    xdata=event['xdata'],
-                    ydata=event['ydata'],
-                    legend='new roi contour',
-                    shape='polygon',
-                    color='pink',
+                    xdata=event["xdata"],
+                    ydata=event["ydata"],
+                    legend="new roi contour",
+                    shape="polygon",
+                    color="pink",
                     fill=False,
-                    overlay=True)
+                    overlay=True,
+                )
 
-            if event['event'] == 'drawingFinished':
+            if event["event"] == "drawingFinished":
                 plot = self.sender()
                 if self.__newROIShape is not None:
                     plot.removeItem(self.__newROIShape)
                     self.__newROIShape = None
 
-        if ((self._createDrawnROIAction.isChecked() or
-                self._createPolygonROIAction.isChecked()) and
-                event['event'] == 'drawingFinished'):
+        if (
+            self._createDrawnROIAction.isChecked()
+            or self._createPolygonROIAction.isChecked()
+        ) and event["event"] == "drawingFinished":
             plot = self.sender()
             if plot is self._axialPlot:
-                coords = numpy.transpose((
-                    event['xdata'],
-                    event['ydata'],
-                    self._axialSlice.getSlicePosition() * numpy.ones(len(event['xdata']))))
+                coords = numpy.transpose(
+                    (
+                        event["xdata"],
+                        event["ydata"],
+                        self._axialSlice.getSlicePosition()
+                        * numpy.ones(len(event["xdata"])),
+                    )
+                )
             elif plot is self._frontPlot:
-                coords = numpy.transpose((
-                    event['xdata'],
-                    self._frontSlice.getSlicePosition() * numpy.ones(len(event['xdata'])),
-                    event['ydata']))
+                coords = numpy.transpose(
+                    (
+                        event["xdata"],
+                        self._frontSlice.getSlicePosition()
+                        * numpy.ones(len(event["xdata"])),
+                        event["ydata"],
+                    )
+                )
             else:  # plot is self._sidePlot
-                coords = numpy.transpose((
-                    self._sideSlice.getSlicePosition() * numpy.ones(len(event['xdata'])),
-                    event['xdata'],
-                    event['ydata']))
+                coords = numpy.transpose(
+                    (
+                        self._sideSlice.getSlicePosition()
+                        * numpy.ones(len(event["xdata"])),
+                        event["xdata"],
+                        event["ydata"],
+                    )
+                )
 
             self.__addROI3DFromSelection(coords)
 
@@ -1425,14 +1479,14 @@ class VolumeView(qt.QMainWindow):
 
         center = 0.5 * (numpy.max(points, axis=0) + numpy.min(points, axis=0))
         radius = numpy.max(numpy.linalg.norm(points[:, :2] - center[:2], axis=1))
-        if radius < 0.01: # TODO make constraints
+        if radius < 0.01:  # TODO make constraints
             radius = 0.01
         height = numpy.max(points[:, 2]) - numpy.min(points[:, 2])
         if height == 0:
             height = 2 * radius  # Fallback for axial slice selection
 
         roi = ROI3D()
-        roi.setName('ROI-%d' % self.__roi_index)
+        roi.setName("ROI-%d" % self.__roi_index)
         self.__roi_index += 1
         roi.setScan(scan)
         roi.setWidth(2 * radius)
@@ -1440,12 +1494,14 @@ class VolumeView(qt.QMainWindow):
         roi.setCurrentSlicePosition(
             self._sideSlice.getSlicePosition(),
             self._frontSlice.getSlicePosition(),
-            self._axialSlice.getSlicePosition())
+            self._axialSlice.getSlicePosition(),
+        )
         roi.setCenter(*center)
 
-        for orientation in ('axial', 'front', 'side'):
+        for orientation in ("axial", "front", "side"):
             self._roiManagers[orientation].addRoi(
-                roi.getROI(orientation), useManagerColor=False)
+                roi.getROI(orientation), useManagerColor=False
+            )
 
         self._roitable.addROI3D(roi)
 
@@ -1457,19 +1513,20 @@ class VolumeView(qt.QMainWindow):
         :param str face:
         :param int value:
         """
-        assert face in ('axial', 'front', 'side')
+        assert face in ("axial", "front", "side")
         self.__handleMarker = False
 
         model = self.sender()
         position = model.getSlicePosition()
         for marker in self.__markers:
-            if marker.getLegend() == face + '-marker':
+            if marker.getLegend() == face + "-marker":
                 marker.setPosition(position, position)
 
         self._roitable.setCurrentSlicePosition(
             self._sideSlice.getSlicePosition(),
             self._frontSlice.getSlicePosition(),
-            self._axialSlice.getSlicePosition())
+            self._axialSlice.getSlicePosition(),
+        )
 
         self.__handleMarker = True
 
@@ -1508,9 +1565,11 @@ class VolumeView(qt.QMainWindow):
             normalization=(oz, res_z),
             dataProvider=axialDataProvider,
             unit=unit,
-            **SliceModel.AXIAL)
+            **SliceModel.AXIAL
+        )
         self._axialSlice.sigCurrentIndexChanged.connect(
-            functools.partial(self.__sliceChanged, 'axial'))
+            functools.partial(self.__sliceChanged, "axial")
+        )
         self._axialSlice.setCurrentIndex(depth // 2)
         self._axialPlot.setModel(self._axialSlice)
         self._axialBrowser.setModel(self._axialSlice)
@@ -1522,9 +1581,11 @@ class VolumeView(qt.QMainWindow):
             normalization=(oy, res_y),
             dataProvider=frontDataProvider,
             unit=unit,
-            **SliceModel.FRONT)
+            **SliceModel.FRONT
+        )
         self._frontSlice.sigCurrentIndexChanged.connect(
-            functools.partial(self.__sliceChanged, 'front'))
+            functools.partial(self.__sliceChanged, "front")
+        )
         self._frontSlice.setCurrentIndex(height // 2)
         self._frontPlot.setModel(self._frontSlice)
         self._frontBrowser.setModel(self._frontSlice)
@@ -1536,9 +1597,11 @@ class VolumeView(qt.QMainWindow):
             normalization=(ox, res_x),
             dataProvider=sideDataProvider,
             unit=unit,
-            **SliceModel.SIDE)
+            **SliceModel.SIDE
+        )
         self._sideSlice.sigCurrentIndexChanged.connect(
-            functools.partial(self.__sliceChanged, 'side'))
+            functools.partial(self.__sliceChanged, "side")
+        )
         self._sideSlice.setCurrentIndex(width // 2)
         self._sidePlot.setModel(self._sideSlice)
         self._sideBrowser.setModel(self._sideSlice)
@@ -1559,7 +1622,7 @@ class VolumeView(qt.QMainWindow):
 
         :rtype: str
         """
-        return 'mm'
+        return "mm"
 
     def getScans(self):
         """Returns the list of available scans
@@ -1568,7 +1631,7 @@ class VolumeView(qt.QMainWindow):
         """
         return self.__scans
 
-    def setResolution(self, depth=1., row=1., column=1.):
+    def setResolution(self, depth=1.0, row=1.0, column=1.0):
         """Set the resolution in units per pixel.
 
         :param float depth: Vertical resolution
@@ -1587,7 +1650,7 @@ class VolumeView(qt.QMainWindow):
         """
         return self.__resolution
 
-    def setOrigin(self, z=0., y=0., x=0.):
+    def setOrigin(self, z=0.0, y=0.0, x=0.0):
         """Set the offset from origin of the dataset in units
 
         :param float z:
@@ -1641,6 +1704,7 @@ class VolumeView(qt.QMainWindow):
 
 # Data loaders ###############################################################
 
+
 class BaseLoader(threading.Thread):
     def __init__(self, *args, **kwargs):
         self._running = False
@@ -1656,10 +1720,12 @@ class BaseLoader(threading.Thread):
     def is_running(self):
         return self._running
 
+
 class NumpyLoader(BaseLoader):
     """Loading numpy file with same API as other loaders"""
+
     def __init__(self, filename):
-        self.data = numpy.load(url.file_path(), mmap_mode='r+')
+        self.data = numpy.load(url.file_path(), mmap_mode="r+")
         self.loaded_index = len(self.data) - 1
         super().__init__()
 
@@ -1676,14 +1742,14 @@ class H5LoadingThread(BaseLoader):
         self._progress = progress
 
         self.loaded_index = 0
-        with h5py.File(self._filename, 'r') as f:
+        with h5py.File(self._filename, "r") as f:
             dset = f[self._dataset_name]
             self.data = numpy.zeros(dset.shape, dtype=dset.dtype)
 
         super().__init__()
 
     def run(self):
-        with h5py.File(self._filename, 'r') as f:
+        with h5py.File(self._filename, "r") as f:
             dset = f[self._dataset_name]
             length = len(dset)
             for index in range(length):
@@ -1704,7 +1770,7 @@ class H5Loader(BaseLoader):
         self._filename = filename
         self._dataset_name = dataset_name
         self._progress = progress
-        self._f = h5py.File(self._filename, 'r')
+        self._f = h5py.File(self._filename, "r")
         self.data = self._f[self._dataset_name]
 
         self.loaded_index = len(self.data)
@@ -1716,7 +1782,7 @@ class H5Loader(BaseLoader):
 
 
 class MemcachedLoadingThread(BaseLoader):
-    WAIT_TIME = 1.  # Seconds to wait until retry if a chunk is not available
+    WAIT_TIME = 1.0  # Seconds to wait until retry if a chunk is not available
 
     class NumpySerde(object):
         """pymemcache serializer/deserializer for numpy.ndarray"""
@@ -1738,7 +1804,9 @@ class MemcachedLoadingThread(BaseLoader):
             else:
                 raise RuntimeException("Unsupported serialization flags")
 
-    def __init__(self, server=('localhost', 11211), uid='data', progress=None, delete=False):
+    def __init__(
+        self, server=("localhost", 11211), uid="data", progress=None, delete=False
+    ):
         from pymemcache.client.base import Client
         import json
 
@@ -1751,11 +1819,11 @@ class MemcachedLoadingThread(BaseLoader):
         if header is None:
             raise RuntimeError("Header information not available")
         header = json.loads(header)
-        self._shape = numpy.array(header['shape'])
+        self._shape = numpy.array(header["shape"])
         self._shape.flags.writeable = False
         assert len(self._shape) == 3
-        self._dtype = numpy.dtype(header['dtype'])
-        self._chunks = numpy.array(header['chunks'])
+        self._dtype = numpy.dtype(header["dtype"])
+        self._chunks = numpy.array(header["chunks"])
         self._chunks.flags.writeable = False
 
         self.loaded_index = 0
@@ -1775,9 +1843,20 @@ class MemcachedLoadingThread(BaseLoader):
         for d0_chunk_index in range(chunks_per_dim[0]):
             for d1_chunk_index in range(chunks_per_dim[1]):
                 for d2_chunk_index in range(chunks_per_dim[2]):
-                    starts = (d0_chunk_index, d1_chunk_index, d2_chunk_index) * self._chunks
+                    starts = (
+                        d0_chunk_index,
+                        d1_chunk_index,
+                        d2_chunk_index,
+                    ) * self._chunks
                     stops = numpy.min((starts + self._chunks, self._shape), axis=0)
-                    key = key_template % (starts[0], stops[0], starts[1], stops[1], starts[2], stops[2])
+                    key = key_template % (
+                        starts[0],
+                        stops[0],
+                        starts[1],
+                        stops[1],
+                        starts[2],
+                        stops[2],
+                    )
 
                     while True:  # Get a chunk, retry until getting it
                         if not self.is_running():
@@ -1789,9 +1868,13 @@ class MemcachedLoadingThread(BaseLoader):
                             break
 
                         time.sleep(self.WAIT_TIME)
-                    self.data[starts[0]:stops[0], starts[1]:stops[1], starts[2]:stops[2]] = chunk_data
+                    self.data[
+                        starts[0] : stops[0], starts[1] : stops[1], starts[2] : stops[2]
+                    ] = chunk_data
 
-                    self.loaded_index = min(length, (d0_chunk_index + 1) * self._chunks[0] - 1)
+                    self.loaded_index = min(
+                        length, (d0_chunk_index + 1) * self._chunks[0] - 1
+                    )
                     self._progress(self.loaded_index, length)
 
 
@@ -1807,30 +1890,24 @@ if __name__ == "__main__":
 
     app = qt.QApplication([])
 
-    scan_20um = Scan(
-        name="2k_20um",
-        bin_resolution=[20 * 10e-6] * 2,
-        slice_size=2048)
+    scan_20um = Scan(name="2k_20um", bin_resolution=[20 * 10e-6] * 2, slice_size=2048)
 
-    scan_2um = Scan(
-        name="2k_2um",
-        bin_resolution=[2 * 10e-6] * 2,
-        slice_size=2048)
+    scan_2um = Scan(name="2k_2um", bin_resolution=[2 * 10e-6] * 2, slice_size=2048)
 
     scans = [scan_20um, scan_2um]
-    window = VolumeView(backend='gl', scans=scans)
+    window = VolumeView(backend="gl", scans=scans)
     window.show()
 
-    print('Init loading...')
+    print("Init loading...")
 
-    last_time = - float('inf')
+    last_time = -float("inf")
     future_result = None
 
     def progress(index, total):
         global last_time, future_result
         t = time.time()
-        if t - last_time >= 2.:  # Update at most every second
-            print('update', index)
+        if t - last_time >= 2.0:  # Update at most every second
+            print("update", index)
             if future_result is None or future_result.done():
                 last_time = t
                 future_result = submitToQtMainThread(window.updateSlices)
@@ -1840,24 +1917,25 @@ if __name__ == "__main__":
 
     else:
         url = DataUrl(args.source)
-        if url.file_path().endswith('.npy'):
+        if url.file_path().endswith(".npy"):
             loader = NumpyLoader(url.file_path())
         else:
             loader = H5Loader(  # H5LoadingThread(
                 filename=url.file_path(),
                 dataset_name=url.data_path(),
-                progress=progress)
+                progress=progress,
+            )
     loader.start()
 
-    print('Loading ready', loader.data.shape)
+    print("Loading ready", loader.data.shape)
 
     window.setOrigin(1, 2, 3)
-    window.setResolution(50*10e-5, 50*10e-5, 50*10e-5)
-    #window.setResolution(50*10e-6, 50*10e-6, 50*10e-6)
+    window.setResolution(50 * 10e-5, 50 * 10e-5, 50 * 10e-5)
+    # window.setResolution(50*10e-6, 50*10e-6, 50*10e-6)
     window.setData(loader.data)
     window.resetZoom()
 
     ret = app.exec_()
-    print('Stop loader')
+    print("Stop loader")
     loader.stop()
     sys.exit(ret)
