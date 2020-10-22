@@ -218,7 +218,7 @@ class Image(items.ImageData):
             dataToUse,
             origin=origin,
             scale=(sx * 2**level, sy * 2**level),
-            colormap=colormap,
+            colormap=colormap if dataToUse.ndim == 2 else None,
             alpha=self.getAlpha(),
         )
 
@@ -295,22 +295,24 @@ class Image(items.ImageData):
 
 if __name__ == "__main__":
     from silx.gui import qt
+    from silx.gui.plot.AlphaSlider import ActiveImageAlphaSlider
     import numpy
     import h5py
     import sys
 
     filename = sys.argv[1]
+    bg_filename = sys.argv[2] if len(sys.argv) == 3 else None
 
     qt.QApplication.setAttribute(qt.Qt.AA_ShareOpenGLContexts, True)
     qt.QApplication.setAttribute(qt.Qt.AA_EnableHighDpiScaling, True)
 
     app = qt.QApplication([])
-    w = PlotWindow(backend="gl")
+    plot = PlotWindow(backend="gl")
     #w.getYAxis().setInverted(True)
     #w.setAxesDisplayed(False)
-    w.setKeepDataAspectRatio(True)
+    plot.setKeepDataAspectRatio(True)
     item = Image()
-    colormap = w.getDefaultColormap()
+    colormap = plot.getDefaultColormap()
     colormap.setVRange(-0.1, 0.3)
     item.setColormap(colormap)
 
@@ -319,9 +321,28 @@ if __name__ == "__main__":
     item.setData(lods)
 
     item.setChunkShape((256, 256))
-    w.addItem(item)
-    w.setActiveImage(item.getName())
-    w.resetZoom()
-    w.show()
+    plot.addItem(item)
 
+    if bg_filename is not None:
+        bgfile = h5py.File(bg_filename, mode="r")
+        lods = [bgfile['level%d' % i] for i in range(8) if ('level%d' % i) in bgfile.keys()]
+        bgitem = Image()
+        bgitem.setName("Background")
+        bgitem.setZValue(-1)
+        bgitem.setData(lods)
+        bgitem.setChunkShape((256, 256))
+        plot.addItem(bgitem)
+
+    plot.setActiveImage(item.getName())
+    plot.resetZoom()
+
+    alphaSlider = ActiveImageAlphaSlider(plot=plot)
+    alphaSlider.show()
+
+    window = qt.QMainWindow()
+    window.setCentralWidget(plot)
+    alphaDock = qt.QDockWidget()
+    alphaDock.setWidget(alphaSlider)
+    window.addDockWidget(qt.Qt.LeftDockWidgetArea, alphaDock)
+    window.show()
     app.exec_()
