@@ -133,7 +133,7 @@ class GLPlotItemPlot3DWrapper(GLPlotItem):
     def discard(self):  # TODO here or not needed?
         self._viewport.scene.children = []
         # TODO call self.getGLBackend().context().cleanGLGarbage()
-        # TODO make it net
+        # TODO make it neat
 
     def pick(self, x, y):
         """Override in subclass"""
@@ -218,6 +218,8 @@ class GLImageBackendItem(GLPlotItemPlot3DWrapper):
         origin = image.transforms[0].translation[:2]
         scale = image.transforms[1].scale[:2]
         shape = image.getData(copy=False).shape
+        # print('shape', shape)
+        # TODO convert shape to 2D for stack
 
         # Get image extent
         xmin, ymin = origin
@@ -789,6 +791,104 @@ class ColormapTexturedMesh3D(primitives.Geometry):
             self._draw(program)
 
 
+class ImageStackSlice(ColormapTexturedMesh3D):
+    """Display an image corresponding to a slice of a stack"""
+
+    def __init__(self):
+        self.__axis = 0
+        self.__index = 0
+        super().__init__(
+            position=numpy.zeros((4, 3), dtype=numpy.float32),
+            texcoord=numpy.zeros((4, 3), dtype=numpy.float32),
+            texture=None,
+            mode="triangle_strip",
+        )
+
+    def __updatePrimitive(self):
+        """Update the vertices and tex coords"""
+        if self.texture is None:
+            return
+        shape = self.getStackData(copy=False).shape
+        axis = self.getSliceAxis()
+
+        unitsquare = numpy.array(
+            [(0.0, 0.0, 0.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0)],
+            dtype=numpy.float32,
+        )
+
+        size = list(reversed(shape))
+        size.pop(2 - axis)
+        vertices = unitsquare[:, :2] * size
+        self.setAttribute("position", vertices, copy=False)
+
+        texcoord = numpy.array(unitsquare, copy=True)
+        texcoord[:, -1] = (self.getSliceIndex() + 0.5) / shape[axis]
+        texcoord = numpy.roll(texcoord, axis=1, shift=-axis)
+        self.setAttribute("texcoord", texcoord, copy=False)
+
+    def getStackData(self, copy: bool = True):
+        """Returns the stack data
+
+        :param bool copy: True (Default) to get a copy,
+                          False to use internal representation (do not modify!)
+        """
+        return super().getData(copy=copy)
+
+    def getData(self, copy: bool = True):
+        """Returns the image data
+
+        :param bool copy: True (Default) to get a copy,
+                          False to use internal representation (do not modify!)
+        """
+        slicing = [slice(None)] * 3
+        slicing[self.getSliceAxis()] = self.getSliceIndex()
+        return numpy.array(self.getStackData(copy=False)[tuple(slicing)], copy=copy)
+
+    def getSliceIndex(self) -> int:
+        """Returns slice index.
+
+        :rtype: int
+        """
+        return self.__index
+
+    def __validSliceIndex(self, index: int, axis: int) -> int:
+        """Returns a valid slice index for given axis and current data."""
+        length = self.getData(copy=False).shape[axis]
+        if index < 0:  # Handle negative index
+            index += length
+        return numpy.clip(index, 0, length - 1)
+
+    def setSliceIndex(self, index: int) -> None:
+        """Set the slice index.
+
+        Negative index are converted to positive ones.
+        Index is clipped to the stack shape.
+
+        :param int index: The index of the slice.
+        """
+        index = self.__validSliceIndex(index, self.getSliceAxis())
+        if index != self.__index:
+            self.__index = index
+            self.__updatePrimitive()
+
+    def getSliceAxis(self) -> int:
+        """Returns slice dimension index in [0, 2].
+
+        :rtype: int
+        """
+        return self.__axis
+
+    def setSliceAxis(self, axis: int) -> None:
+        """Set the slice dimension index in [0, 2].
+
+        :param int index: The index of the slice.
+        """
+        assert 0 <= axis <= 2
+        if axis != self.__axis:
+            self.__axis = axis
+            self.__updatePrimitive()
+
+
 class GLImageStack(GLImage):
     """Data image PlotWidget item based on plot3d.scene"""
 
@@ -1013,9 +1113,11 @@ if __name__ == "__main__":
         plot.resetZoom()
         plot.show()
 
-    shape = 1024 * 4, 512, 512
+    shape = 1024, 512, 512
     # shape = 2, 3, 4
+    print("creating data...")
     data = numpy.random.random(numpy.prod(shape)).astype(numpy.float32).reshape(shape)
+    print("data created")
 
     texture = DataTexture(
         internalFormat=gl.GL_R32F,
@@ -1034,7 +1136,7 @@ if __name__ == "__main__":
         image.setName("stack")
         image.setColormap(plot.getDefaultColormap())
         image.getColormap().setName("viridis")
-        image.getColormap().setVRange(0, numpy.prod(shape))
+        image.getColormap().setVRange(None, None)
         image.setDataTexture(texture)
         image.setSliceAxis(axis)
         plot.addItem(image)
