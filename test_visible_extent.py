@@ -10,6 +10,9 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 import silx_monkey_patch
 
+# TODO for live update of the HDF5 file:
+# - make a h5py LevelOfDetailImageData that closes the file each time + no file locking
+# - update at regular interval
 
 # TODO pythonic slice accessor?, asynchronous
 class LevelOfDetailImageData:
