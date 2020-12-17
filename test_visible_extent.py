@@ -6,6 +6,7 @@ from silx.gui.plot import items, PlotWindow
 
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(__file__))
 import silx_monkey_patch
@@ -13,6 +14,33 @@ import silx_monkey_patch
 # TODO for live update of the HDF5 file:
 # - make a h5py LevelOfDetailImageData that closes the file each time + no file locking
 # - update at regular interval
+
+class H5Loader:
+    """Wrapper to give access to hdf5 data but not keeping the file opened"""
+    def __init__(self, filename, datasetname):
+        self.__filename = filename
+        self.__datasetname = datasetname
+        with h5py.File(self.__filename, mode='r') as f:
+            dataset = f[self.__datasetname]
+            self.__size = dataset.size
+            self.__shape = dataset.shape
+            self.__dtype = dataset.dtype
+            self.__ndim = dataset.ndim
+
+    ndim = property(lambda self: self.__ndim)    
+    size = property(lambda self: self.__size)
+    shape = property(lambda self: self.__shape)
+    dtype = property(lambda self: self.__dtype)
+        
+    def __getitem__(self, key):
+        """Get selection, returns a numpy.ndarray"""
+        with h5py.File(self.__filename, mode='r') as f:
+            return f[self.__datasetname][key]
+
+    def __array__(self):
+        """Array interface, returns a numpy.ndarray"""
+        return self[:]
+
 
 # TODO pythonic slice accessor?, asynchronous
 class LevelOfDetailImageData:
@@ -114,6 +142,7 @@ class Image(items.ImageData):
     """Signal emitted when the visible slices of the array has changed."""
 
     def __init__(self):
+        self.__lastUpdate = 0
         self.__loddata = LevelOfDetailImageData(
             [numpy.array((0, 0), dtype=numpy.float32)]
         )
@@ -123,6 +152,17 @@ class Image(items.ImageData):
         super().__init__()
         self._sigVisibleBoundsChanged.connect(self.__visibleBoundsChanged)
         self._setVisibleBoundsTracking(True)
+
+    def startPolling(self, timeout):
+        self.__timer = qt.QTimer()
+        self.__timer.timeout.connect(self.__timeout)
+        self.__timer.start(timeout)
+
+    def stopPolling(self):
+        self.__timer.stop()
+
+    def __timeout(self):
+        self._updated(items.ItemChangedType.DATA)
 
     @docstring(items.ImageData)
     def _setPlot(self, plot):
@@ -184,6 +224,8 @@ class Image(items.ImageData):
 
     def _addBackendRenderer(self, backend):
         """Update backend renderer"""
+        self.__lastUpdate = time.time()
+
         plot = self.getPlot()
         assert plot is not None
         if not self._isPlotLinear(plot):
@@ -319,11 +361,14 @@ if __name__ == "__main__":
     colormap.setVRange(-0.1, 0.3)
     item.setColormap(colormap)
 
-    f = h5py.File(filename, mode="r")
-    lods = [f['level%d' % i] for i in range(8) if ('level%d' % i) in f.keys()]
+    #f = h5py.File(filename, mode="r")
+    #lods = [f['level%d' % i] for i in range(8) if ('level%d' % i) in f.keys()]
+    with h5py.File(filename, mode="r") as f:
+        lods = [H5Loader(filename, 'level%d' % i) for i in range(8) if ('level%d' % i) in f.keys()]
     item.setData(lods)
 
     item.setChunkShape((256, 256))
+    item.startPolling(1000)
     plot.addItem(item)
 
     if bg_filename is not None:
@@ -348,4 +393,5 @@ if __name__ == "__main__":
     alphaDock.setWidget(alphaSlider)
     window.addDockWidget(qt.Qt.LeftDockWidgetArea, alphaDock)
     window.show()
+
     app.exec_()
