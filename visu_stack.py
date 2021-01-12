@@ -1725,7 +1725,7 @@ class NumpyLoader(BaseLoader):
     """Loading numpy file with same API as other loaders"""
 
     def __init__(self, filename):
-        self.data = numpy.load(url.file_path(), mmap_mode="r+")
+        self.data = numpy.load(url.file_path(), mmap_mode="r")
         self.loaded_index = len(self.data) - 1
         super().__init__()
 
