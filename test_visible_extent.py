@@ -4,12 +4,45 @@ from silx.utils.proxy import docstring
 from silx.gui import qt
 from silx.gui.plot import items, PlotWindow
 
+from contextlib import contextmanager
 import os
 import sys
 import time
 
 sys.path.insert(0, os.path.dirname(__file__))
 import silx_monkey_patch
+
+
+@contextmanager
+def envvar(name, value):
+    """Context manager setting env. var during the call."""
+    if value is None:  # No-op in this case
+        yield
+
+    else:  # Set/reset env var
+        previous = os.environ.get(name, None)
+        os.environ[name] = value
+        yield
+        if previous is None:
+            del os.environ[name]
+        else:
+            os.environ[name] = previous
+
+
+@contextmanager
+def h5File(name, mode='r', *args, **kwargs):
+    """h5py.File context manager with extra locking parameter.
+
+    :param Union[bool,None] locking:
+        Toggle HDF5 file locking.
+        Default None, i.e., use default file locking depending
+        on the HDF5_USE_FILE_LOCKING environment variable.
+    """
+    locking = kwargs.pop('locking', None)
+    with envvar('HDF5_USE_FILE_LOCKING', str(bool(locking)).upper()):
+        with h5py.File(name, *args, **kwargs) as f:
+            yield f
+
 
 # TODO for live update of the HDF5 file:
 # - make a h5py LevelOfDetailImageData that closes the file each time + no file locking
@@ -20,7 +53,7 @@ class H5Loader:
     def __init__(self, filename, datasetname):
         self.__filename = filename
         self.__datasetname = datasetname
-        with h5py.File(self.__filename, mode='r') as f:
+        with h5File(self.__filename, mode='r', locking=False) as f:
             dataset = f[self.__datasetname]
             self.__size = dataset.size
             self.__shape = dataset.shape
@@ -34,7 +67,7 @@ class H5Loader:
         
     def __getitem__(self, key):
         """Get selection, returns a numpy.ndarray"""
-        with h5py.File(self.__filename, mode='r') as f:
+        with h5File(self.__filename, mode='r', locking=False) as f:
             return f[self.__datasetname][key]
 
     def __array__(self):
@@ -361,18 +394,18 @@ if __name__ == "__main__":
     colormap.setVRange(-0.1, 0.3)
     item.setColormap(colormap)
 
-    #f = h5py.File(filename, mode="r")
+    #f = h5File(filename, mode="r", locking=False)
     #lods = [f['level%d' % i] for i in range(8) if ('level%d' % i) in f.keys()]
-    with h5py.File(filename, mode="r") as f:
+    with h5File(filename, mode="r", locking=False) as f:
         lods = [H5Loader(filename, 'level%d' % i) for i in range(8) if ('level%d' % i) in f.keys()]
     item.setData(lods)
 
     item.setChunkShape((256, 256))
-    item.startPolling(1000)
+    item.startPolling(100)
     plot.addItem(item)
 
     if bg_filename is not None:
-        bgfile = h5py.File(bg_filename, mode="r")
+        bgfile = h5File(bg_filename, mode="r", locking=False)
         lods = [bgfile['level%d' % i] for i in range(8) if ('level%d' % i) in bgfile.keys()]
         bgitem = Image()
         bgitem.setName("Background")
