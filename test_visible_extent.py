@@ -394,8 +394,6 @@ if __name__ == "__main__":
     colormap.setVRange(-0.1, 0.3)
     item.setColormap(colormap)
 
-    #f = h5File(filename, mode="r", locking=False)
-    #lods = [f['level%d' % i] for i in range(8) if ('level%d' % i) in f.keys()]
     with h5File(filename, mode="r", locking=False) as f:
         lods = [H5Loader(filename, 'level%d' % i) for i in range(8) if ('level%d' % i) in f.keys()]
     item.setData(lods)
@@ -405,10 +403,11 @@ if __name__ == "__main__":
     plot.addItem(item)
 
     if bg_filename is not None:
-        bgfile = h5File(bg_filename, mode="r", locking=False)
-        lods = [bgfile['level%d' % i] for i in range(8) if ('level%d' % i) in bgfile.keys()]
+        with h5File(bg_filename, mode="r", locking=False) as f:
+            lods = [H5Loader(bg_filename, 'level%d' % i) for i in range(8) if ('level%d' % i) in f.keys()]
         bgitem = Image()
         bgitem.setName("Background")
+        bgitem.setScale(5.)
         bgitem.setZValue(-1)
         bgitem.setData(lods)
         bgitem.setChunkShape((256, 256))
