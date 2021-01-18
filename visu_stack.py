@@ -195,6 +195,7 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
         items.LineMixIn.__init__(self)
         self.__size = 0.0, 0.0
         self.__center = 0.0, 0.0
+        self.__subRegionWidth = None
 
         self._handleLeft = self.addHandle()
         self._handleLeft._setConstraint(WeakMethodProxy(self.__leftConstraint))
@@ -216,6 +217,16 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
         shape.setLineWidth(self.getLineWidth())
         shape.setColor(rgba(self.getColor()))
         self.__shape = shape
+        self.addItem(shape)
+
+        shape = items.Shape("rectangle")
+        shape.setPoints([[0, 0], [0, 0]])
+        shape.setFill(False)
+        shape.setOverlay(True)
+        shape.setLineStyle(self.getLineStyle())
+        shape.setLineWidth(self.getLineWidth())
+        shape.setColor(rgba(self.getColor()))
+        self.__subShape = shape
         self.addItem(shape)
 
     def handleDragUpdated(self, handle, origin, previous, current):
@@ -259,6 +270,7 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
     def _updated(self, event=None, checkVisibility=True):
         if event in [items.ItemChangedType.VISIBLE]:
             self._updateItemProperty(event, self, self.__shape)
+            self._updateItemProperty(event, self, self.__subShape)
         super(RectangleROI2, self)._updated(event, checkVisibility)
 
     def _updatedStyle(self, event, style):
@@ -266,6 +278,9 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
         self.__shape.setColor(style.getColor())
         self.__shape.setLineStyle(style.getLineStyle())
         self.__shape.setLineWidth(style.getLineWidth())
+        self.__subShape.setColor(style.getColor())
+        self.__subShape.setLineStyle(style.getLineStyle())
+        self.__subShape.setLineWidth(style.getLineWidth())
 
     def setFirstShapePoints(self, points):
         """Initialize the rectangle from a bunch of points"""
@@ -330,6 +345,21 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
                 self._handleCenter.setPosition(*self.__center)
             self.__updateHandles()
 
+    def setSubRegionWidth(self, width):
+        """Set the width of the sub-region of the ROI.
+
+        :param Union[float,None] width:
+        """
+        self.__subRegionWidth = width
+        self.__updateHandles()
+
+    def getSubRegionWidth(self):
+        """Returns the width of the sub region.
+
+        :rtype: Union[float,None]
+        """
+        return self.__subRegionWidth
+
     def __updateHandles(self):
         """Update handles"""
         size = self.getSize()
@@ -348,6 +378,15 @@ class RectangleROI2(roi.HandleBasedROI, items.LineMixIn):
             self._handleLabel.setPosition(*origin)
 
         self.__shape.setPoints(numpy.array([origin, origin + size]))
+
+        subwidth = self.getSubRegionWidth()
+        if subwidth is None:
+            self.__subShape.setPoints(numpy.array([origin, origin + size]))
+        else:
+            suboffset = subwidth / 2.
+            self.__subShape.setPoints(numpy.array([
+                (center[0] - suboffset, origin[1]),
+                (center[0] + suboffset, origin[1] + size[1])]))
         self.sigRegionChanged.emit()
 
     @docstring(roi.HandleBasedROI)
@@ -484,11 +523,23 @@ class ROI3D(qt.QObject):
         in_style = "-"
         out_style = "--"
 
+        cx, cy, cz = self.getCenter()
+        width = self.getWidth()
+
+        xwidth, ywidth = None, None
+        if width > 0.:
+            if oy <= y <= fy:
+                xwidth = width * numpy.sqrt(1 - ((y - cy) / (0.5 * width))**2)
+            if ox <= x <= fx:
+                ywidth = width * numpy.sqrt(1 - ((x - cx) / (0.5 * width))**2)
+
         self.__rois["side"].setColor(in_color if ox <= x <= fx else out_color)
         self.__rois["side"].setLineStyle(in_style if ox <= x <= fx else out_style)
+        self.__rois["side"].setSubRegionWidth(ywidth)
 
         self.__rois["front"].setColor(in_color if oy <= y <= fy else out_color)
         self.__rois["front"].setLineStyle(in_style if oy <= y <= fy else out_style)
+        self.__rois["front"].setSubRegionWidth(xwidth)
 
         self.__rois["axial"].setColor(in_color if oz <= z <= fz else out_color)
         self.__rois["axial"].setLineStyle(in_style if oz <= z <= fz else out_style)
