@@ -1307,7 +1307,6 @@ class VolumeView(qt.QMainWindow):
         # Make ColorBarWidget background white by changing its palette
         self._colorbar.setAutoFillBackground(True)
         palette = self._colorbar.palette()
-        palette.setColor(qt.QPalette.Background, qt.Qt.white)
         palette.setColor(qt.QPalette.Window, qt.Qt.white)
         self._colorbar.setPalette(palette)
 
@@ -1558,16 +1557,13 @@ class VolumeView(qt.QMainWindow):
 
         roi.sigMarkerDragged.connect(self._axialSlice.setSlicePosition)
 
-    def __sliceChanged(self, face, value):
-        """Handle slice change
+    def __sliceChanged(self, value: int):
+        model = self.sender()
 
-        :param str face:
-        :param int value:
-        """
+        face = model.getTitle().lower()
         assert face in ("axial", "front", "side")
         self.__handleMarker = False
 
-        model = self.sender()
         position = model.getSlicePosition()
         for marker in self.__markers:
             if marker.getLegend() == face + "-marker":
@@ -1618,9 +1614,7 @@ class VolumeView(qt.QMainWindow):
             unit=unit,
             **SliceModel.AXIAL
         )
-        self._axialSlice.sigCurrentIndexChanged.connect(
-            functools.partial(self.__sliceChanged, "axial")
-        )
+        self._axialSlice.sigCurrentIndexChanged.connect(self.__sliceChanged)
         self._axialSlice.setCurrentIndex(depth // 2)
         self._axialPlot.setModel(self._axialSlice)
         self._axialBrowser.setModel(self._axialSlice)
@@ -1634,9 +1628,7 @@ class VolumeView(qt.QMainWindow):
             unit=unit,
             **SliceModel.FRONT
         )
-        self._frontSlice.sigCurrentIndexChanged.connect(
-            functools.partial(self.__sliceChanged, "front")
-        )
+        self._frontSlice.sigCurrentIndexChanged.connect(self.__sliceChanged)
         self._frontSlice.setCurrentIndex(height // 2)
         self._frontPlot.setModel(self._frontSlice)
         self._frontBrowser.setModel(self._frontSlice)
@@ -1650,9 +1642,7 @@ class VolumeView(qt.QMainWindow):
             unit=unit,
             **SliceModel.SIDE
         )
-        self._sideSlice.sigCurrentIndexChanged.connect(
-            functools.partial(self.__sliceChanged, "side")
-        )
+        self._sideSlice.sigCurrentIndexChanged.connect(self.__sliceChanged)
         self._sideSlice.setCurrentIndex(width // 2)
         self._sidePlot.setModel(self._sideSlice)
         self._sideBrowser.setModel(self._sideSlice)
@@ -1980,9 +1970,9 @@ if __name__ == "__main__":
 
     print("Loading ready", loader.data.shape)
 
-    window.setOrigin(1, 2, 3)
-    window.setResolution(50 * 10e-5, 50 * 10e-5, 50 * 10e-5)
-    # window.setResolution(50*10e-6, 50*10e-6, 50*10e-6)
+    #window.setOrigin(1, 2, 3)
+    #window.setResolution(50 * 10e-5, 50 * 10e-5, 50 * 10e-5)
+    window.setResolution(50*10e-6, 50*10e-6, 50*10e-6)
     window.setData(loader.data)
     window.resetZoom()
 
